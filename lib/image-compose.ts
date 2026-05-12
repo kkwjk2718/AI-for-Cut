@@ -39,6 +39,26 @@ export async function normalizeShotForBooth(buffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
+export async function assertForegroundHasAlpha(buffer: Buffer): Promise<void> {
+  const { data, info } = await sharp(buffer)
+    .rotate()
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const pixels = info.width * info.height;
+  let transparentPixels = 0;
+
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] < 250) {
+      transparentPixels += 1;
+    }
+  }
+
+  if (transparentPixels / pixels < 0.01) {
+    throw new Error("인물 분리 결과가 확인되지 않았습니다. 다시 촬영해 주세요.");
+  }
+}
+
 async function makePanel(background: Buffer, foreground: Buffer): Promise<Buffer> {
   const bg = await sharp(background)
     .resize(PANEL_WIDTH, PANEL_HEIGHT, { fit: "cover", position: "center" })

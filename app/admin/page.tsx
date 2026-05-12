@@ -90,6 +90,12 @@ export default async function AdminPage() {
           </div>
           <div className="flex gap-3">
             <a
+              href="/admin/health"
+              className="flex min-h-[72px] items-center justify-center rounded-[22px] bg-white px-7 text-2xl font-black text-[#101722]"
+            >
+              운영 점검
+            </a>
+            <a
               href="/"
               className="flex min-h-[72px] items-center justify-center rounded-[22px] bg-[#5eead4] px-7 text-2xl font-black text-[#101722]"
             >

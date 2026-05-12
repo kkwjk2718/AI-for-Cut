@@ -10,6 +10,14 @@ export interface SendPhotoEmailResult {
   messageId?: string;
 }
 
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+export function isBrevoConfigured(): boolean {
+  return Boolean(process.env.BREVO_API_KEY?.trim() && process.env.BREVO_SENDER_EMAIL?.trim());
+}
+
 export async function sendPhotoEmail({
   to,
   image,
@@ -20,6 +28,9 @@ export async function sendPhotoEmail({
   const senderName = process.env.BREVO_SENDER_NAME?.trim() || "AI Photo Booth";
 
   if (!apiKey || !senderEmail) {
+    if (isProduction()) {
+      throw new Error("Brevo is not configured.");
+    }
     return { success: true, skipped: true };
   }
 

@@ -38,7 +38,7 @@ export async function writeSessionFile(
   fileName: string,
   buffer: Buffer,
 ): Promise<string> {
-  await ensureSessionDir(sessionId);
+  await fs.access(getSessionDir(sessionId));
   const target = getSessionFilePath(sessionId, fileName);
   await fs.writeFile(target, buffer);
   return fileName;

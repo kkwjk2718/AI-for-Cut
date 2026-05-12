@@ -11,11 +11,11 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { sessionId?: string; email?: string };
     const sessionId = assertSessionId(body.sessionId);
+    const session = await readSession(sessionId);
     if (!isEmail(body.email)) {
       throw new Error("이메일 주소를 확인해 주세요.");
     }
 
-    const session = await readSession(sessionId);
     if (!session.files.final) {
       throw new Error("완성된 이미지가 없습니다.");
     }

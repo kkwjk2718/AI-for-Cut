@@ -4,6 +4,13 @@ type SegmentationResult = {
   segmentationMask: CanvasImageSource;
 };
 
+type SelfieSegmenter = {
+  setOptions: (options: { modelSelection: number; selfieMode: boolean }) => void;
+  onResults: (callback: (results: SegmentationResult) => void) => void;
+  send: (input: { image: HTMLCanvasElement }) => Promise<void>;
+  close: () => void;
+};
+
 async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -14,34 +21,35 @@ async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 export async function removeBackgroundDataUrl(dataUrl: string): Promise<string> {
-  try {
-    const image = await loadImage(dataUrl);
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const sourceContext = canvas.getContext("2d");
-    if (!sourceContext) {
-      return dataUrl;
-    }
-    sourceContext.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const image = await loadImage(dataUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const sourceContext = canvas.getContext("2d");
+  if (!sourceContext) {
+    throw new Error("인물 분리를 준비하지 못했습니다.");
+  }
+  sourceContext.drawImage(image, 0, 0, canvas.width, canvas.height);
 
+  let segmenter: SelfieSegmenter | undefined;
+  try {
     const { SelfieSegmentation } = await import("@mediapipe/selfie_segmentation");
-    const segmenter = new SelfieSegmentation({
-      locateFile: (file: string) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`,
-    });
-    segmenter.setOptions({
+    const activeSegmenter = new SelfieSegmentation({
+      locateFile: (file: string) => `/vendor/mediapipe/selfie_segmentation/${file}`,
+    }) as SelfieSegmenter;
+    segmenter = activeSegmenter;
+    activeSegmenter.setOptions({
       modelSelection: 1,
       selfieMode: false,
     });
 
     const result = await new Promise<SegmentationResult>((resolve, reject) => {
       const timeout = window.setTimeout(() => reject(new Error("인물 분리 시간이 초과되었습니다.")), 8000);
-      segmenter.onResults((results: SegmentationResult) => {
+      activeSegmenter.onResults((results: SegmentationResult) => {
         window.clearTimeout(timeout);
         resolve(results);
       });
-      segmenter.send({ image: canvas }).catch(reject);
+      activeSegmenter.send({ image: canvas }).catch(reject);
     });
 
     const output = document.createElement("canvas");
@@ -49,7 +57,7 @@ export async function removeBackgroundDataUrl(dataUrl: string): Promise<string> 
     output.height = canvas.height;
     const context = output.getContext("2d");
     if (!context) {
-      return dataUrl;
+      throw new Error("인물 분리 결과를 만들지 못했습니다.");
     }
 
     context.drawImage(result.segmentationMask, 0, 0, output.width, output.height);
@@ -57,9 +65,10 @@ export async function removeBackgroundDataUrl(dataUrl: string): Promise<string> 
     context.drawImage(canvas, 0, 0, output.width, output.height);
     context.globalCompositeOperation = "source-over";
 
-    segmenter.close();
     return output.toDataURL("image/png");
-  } catch {
-    return dataUrl;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error("인물 분리에 실패했습니다.");
+  } finally {
+    segmenter?.close();
   }
 }

@@ -56,7 +56,12 @@ export async function createSession(options: CreateSessionOptions = {}): Promise
 
 export async function readSession(sessionId: string): Promise<BoothSession> {
   const id = assertSessionId(sessionId);
-  const raw = await fs.readFile(metadataPath(id), "utf8");
+  let raw: string;
+  try {
+    raw = await fs.readFile(metadataPath(id), "utf8");
+  } catch {
+    throw new Error("세션을 찾을 수 없습니다.");
+  }
   const session = JSON.parse(raw) as BoothSession;
   if (new Date(session.expiresAt).getTime() < Date.now()) {
     session.state = "expired";

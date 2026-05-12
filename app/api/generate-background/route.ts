@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { addCostLine } from "@/lib/costs";
 import { generateBackground } from "@/lib/openai";
-import { updateSession } from "@/lib/session-store";
+import { readSession, updateSession } from "@/lib/session-store";
 import { writeSessionFile } from "@/lib/storage";
 import { validateSelectedKeywords } from "@/lib/keywords";
+import { assertSessionId } from "@/lib/validators";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { sessionId?: string; selectedKeywords?: unknown };
+    const sessionId = assertSessionId(body.sessionId);
+    await readSession(sessionId);
     const selectedKeywords = validateSelectedKeywords(body.selectedKeywords);
     const { buffer, usedFallback, costLine } = await generateBackground(selectedKeywords);
-    await writeSessionFile(body.sessionId ?? "", "background.png", buffer);
-    await updateSession(body.sessionId ?? "", (session) => {
+    await writeSessionFile(sessionId, "background.png", buffer);
+    await updateSession(sessionId, (session) => {
       session.selectedKeywords = selectedKeywords;
       session.files.background = "background.png";
       addCostLine(session, costLine);
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       data: {
-        backgroundUrl: `/api/session/${body.sessionId}/file/background.png`,
+        backgroundUrl: `/api/session/${sessionId}/file/background.png`,
         usedFallback,
       },
     });

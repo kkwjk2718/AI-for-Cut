@@ -8,6 +8,14 @@ function apiKey(): string | undefined {
   return process.env.OPENAI_API_KEY?.trim();
 }
 
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+export function isOpenAiConfigured(): boolean {
+  return Boolean(apiKey());
+}
+
 function analysisModel(): string {
   return process.env.OPENAI_ANALYSIS_MODEL || "gpt-5.4-mini";
 }
@@ -52,7 +60,11 @@ export async function prepareAnalysisImage(buffer: Buffer): Promise<Buffer> {
 export async function analyzePose(
   imageBuffer: Buffer,
 ): Promise<{ analysis: PoseAnalysis; costLine?: AiCostLine }> {
-  if (!apiKey()) {
+  const key = apiKey();
+  if (!key) {
+    if (isProduction()) {
+      throw new Error("OpenAI is not configured.");
+    }
     return { analysis: FALLBACK_ANALYSIS };
   }
 
@@ -61,7 +73,7 @@ export async function analyzePose(
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey()}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -106,7 +118,10 @@ export async function analyzePose(
         extractOpenAiUsage(payload),
       ),
     };
-  } catch {
+  } catch (error) {
+    if (isProduction()) {
+      throw error instanceof Error ? error : new Error("OpenAI analysis failed.");
+    }
     return { analysis: FALLBACK_ANALYSIS };
   }
 }
@@ -170,7 +185,11 @@ async function fallbackBackground(selected: SelectedKeywords): Promise<Buffer> {
 export async function generateBackground(
   selected: SelectedKeywords,
 ): Promise<{ buffer: Buffer; usedFallback: boolean; costLine?: AiCostLine }> {
-  if (!apiKey()) {
+  const key = apiKey();
+  if (!key) {
+    if (isProduction()) {
+      throw new Error("OpenAI is not configured.");
+    }
     return { buffer: await fallbackBackground(selected), usedFallback: true };
   }
 
@@ -178,7 +197,7 @@ export async function generateBackground(
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey()}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -220,7 +239,10 @@ export async function generateBackground(
       };
     }
     throw new Error("OpenAI image generation returned no image.");
-  } catch {
+  } catch (error) {
+    if (isProduction()) {
+      throw error instanceof Error ? error : new Error("OpenAI image generation failed.");
+    }
     return { buffer: await fallbackBackground(selected), usedFallback: true };
   }
 }
