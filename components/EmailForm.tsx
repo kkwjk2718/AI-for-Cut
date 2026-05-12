@@ -146,7 +146,13 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               inputMode === "local" ? "border-[#12325b] bg-[#e9f0fb]" : "border-[#12325b]/25 bg-white"
             }`}
           >
-            <span className="safe-text block truncate text-[#12325b]">{localPart || "아이디"}</span>
+            <span
+              className={`safe-text block truncate ${
+                inputMode === "local" ? (localPart ? "text-[#050505]" : "text-[#050505]/42") : "text-[#f4f1e8]"
+              }`}
+            >
+              {localPart || "아이디"}
+            </span>
           </button>
           <span className="text-4xl font-black">@</span>
           <button
@@ -160,7 +166,9 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               inputMode === "domain" ? "border-[#12325b] bg-[#e9f0fb]" : "border-[#12325b]/25 bg-white"
             }`}
           >
-            <span className="safe-text block truncate text-[#12325b]">{domain || "도메인"}</span>
+            <span className={`safe-text block truncate ${inputMode === "domain" ? "text-[#050505]" : "text-[#f4f1e8]"}`}>
+              {domain || "도메인"}
+            </span>
           </button>
           <button
             type="button"
