@@ -30,6 +30,19 @@ function imageFixedCostUsd(): number {
   return Number.isFinite(value) && value >= 0 ? value : 0.041;
 }
 
+function timeoutMs(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function analysisTimeoutSignal(): AbortSignal {
+  return AbortSignal.timeout(timeoutMs("OPENAI_ANALYSIS_TIMEOUT_MS", 45_000));
+}
+
+function imageTimeoutSignal(): AbortSignal {
+  return AbortSignal.timeout(timeoutMs("OPENAI_IMAGE_TIMEOUT_MS", 90_000));
+}
+
 function extractOutputText(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object") {
     return undefined;
@@ -78,6 +91,7 @@ export async function analyzePose(
     const imageData = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
+      signal: analysisTimeoutSignal(),
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
@@ -207,6 +221,7 @@ export async function generateBackground(
   try {
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
+      signal: imageTimeoutSignal(),
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
@@ -248,7 +263,9 @@ export async function generateBackground(
       return { buffer: Buffer.from(image.b64_json, "base64"), usedFallback: false, costLine };
     }
     if (image?.url) {
-      const imageResponse = await fetch(image.url);
+      const imageResponse = await fetch(image.url, {
+        signal: AbortSignal.timeout(timeoutMs("OPENAI_IMAGE_DOWNLOAD_TIMEOUT_MS", 30_000)),
+      });
       if (!imageResponse.ok) {
         throw new Error("Generated image URL could not be fetched.");
       }

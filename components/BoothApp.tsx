@@ -75,17 +75,30 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function postJson<T>(url: string, body?: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const payload = (await response.json()) as ApiResponse<T>;
-  if (!payload.ok) {
-    throw new Error(payload.error);
+async function postJson<T>(url: string, body?: unknown, timeoutMs = 70_000): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = (await response.json()) as ApiResponse<T>;
+    if (!payload.ok) {
+      throw new Error(payload.error);
+    }
+    return payload.data;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("요청 시간이 초과되었습니다. 네트워크 상태를 확인하고 다시 시도해 주세요.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  return payload.data;
 }
 
 function defaultKeywords(analysis: PoseAnalysis): SelectedKeywords {
@@ -602,7 +615,7 @@ export function BoothApp() {
         await postJson<{ backgroundUrl: string; usedFallback: boolean }>("/api/generate-background", {
           sessionId: requireSession(),
           selectedKeywords,
-        });
+        }, 125_000);
         if (flowRunRef.current !== runId) {
           return false;
         }
@@ -991,7 +1004,19 @@ export function BoothApp() {
                   </div>
                 )}
               </div>
-              <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
+              <div className="grid gap-5">
+                <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
+                {backgroundStatus === "error" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <KioskButton onClick={() => void chooseTagsAndContinue()} className="text-3xl">
+                      다시 생성
+                    </KioskButton>
+                    <KioskButton onClick={() => setStep("tag_select")} tone="secondary" className="text-3xl">
+                      태그 수정
+                    </KioskButton>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

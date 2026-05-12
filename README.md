@@ -18,6 +18,7 @@ npm run dev
 - `OPENAI_API_KEY`: OpenAI API 키
 - `OPENAI_ANALYSIS_MODEL`: 기본값 `gpt-5.4-mini`
 - `OPENAI_IMAGE_MODEL`: 기본값 `gpt-image-2`
+- `OPENAI_ANALYSIS_TIMEOUT_MS`, `OPENAI_IMAGE_TIMEOUT_MS`, `OPENAI_IMAGE_DOWNLOAD_TIMEOUT_MS`: OpenAI 요청 타임아웃
 - `BREVO_API_KEY`: Brevo Transactional Email API 키
 - `BREVO_SENDER_EMAIL`: 발신 이메일
 - `BREVO_SENDER_NAME`: 발신자 이름
@@ -46,6 +47,7 @@ npm run dev
 - 관리자 기록에는 완성 시간, 선택 키워드, AI 사용량, 메일 전송 상태를 저장하고 `ADMIN_ARCHIVE_TTL_HOURS` 이후 정리합니다.
 - 비용은 OpenAI API가 반환한 usage token과 환경 변수의 USD/1M token 단가로 계산합니다.
 - 이미지 생성 usage가 없으면 `OPENAI_IMAGE_FIXED_COST_USD_1024x1536_MEDIUM` 고정 비용으로 기록합니다.
+- 이미지 생성이 `OPENAI_IMAGE_TIMEOUT_MS` 안에 끝나지 않으면 개발 모드에서는 fallback 배경으로 진행하고, 운영 모드에서는 에러로 재시도를 유도합니다.
 - 카메라, Sharp 이미지 합성, Brevo 메일 비용은 포함하지 않습니다.
 
 ## 주요 흐름
