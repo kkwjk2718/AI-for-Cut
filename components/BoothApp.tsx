@@ -38,6 +38,7 @@ type Step =
 
 type BackgroundStatus = "idle" | "generating" | "ready" | "error";
 type BeautyPreviewStatus = "idle" | "processing" | "ready" | "error";
+type CountdownMode = "prep" | "shutter";
 
 const CATEGORIES: KeywordCategory[] = ["theme", "mood", "color", "effect"];
 const CATEGORY_LABELS: Record<KeywordCategory, string> = {
@@ -419,6 +420,7 @@ export function BoothApp() {
   const [cameraReady, setCameraReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
+  const [countdownMode, setCountdownMode] = useState<CountdownMode | null>(null);
   const [analysisHelpSeconds, setAnalysisHelpSeconds] = useState(10);
   const [analysisPhoto, setAnalysisPhoto] = useState<string | null>(null);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
@@ -457,17 +459,23 @@ export function BoothApp() {
     return sessionId;
   }
 
-  async function runCountdown(runId: number, values: number[], label: string): Promise<void> {
+  function clearCountdown() {
+    setCountdown(null);
+    setCountdownLabel(null);
+    setCountdownMode(null);
+  }
+
+  async function runCountdown(runId: number, values: number[], label: string, mode: CountdownMode): Promise<void> {
     for (const value of values) {
       if (flowRunRef.current !== runId) {
         return;
       }
       setCountdownLabel(label);
+      setCountdownMode(mode);
       setCountdown(value);
       await sleep(1000);
     }
-    setCountdown(null);
-    setCountdownLabel(null);
+    clearCountdown();
   }
 
   async function start() {
@@ -496,8 +504,7 @@ export function BoothApp() {
       setShotStatus("카메라를 준비하고 있습니다");
       setCameraReady(false);
       setCompleteTitle("전송 완료");
-      setCountdown(null);
-      setCountdownLabel(null);
+      clearCountdown();
       setAnalysisHelpSeconds(10);
       const data = await postJson<{ sessionId: string; expiresAt: string }>("/api/session/start", {
         privacyConsentAccepted: true,
@@ -514,8 +521,7 @@ export function BoothApp() {
     const id = sessionId;
     flowRunRef.current += 1;
     captureStartedRef.current = false;
-    setCountdown(null);
-    setCountdownLabel(null);
+    clearCountdown();
     setStep("idle");
     setSessionId(null);
     setCameraReady(false);
@@ -550,8 +556,7 @@ export function BoothApp() {
 
   const beginAnalysisCapture = useCallback(() => {
     captureStartedRef.current = false;
-    setCountdown(null);
-    setCountdownLabel(null);
+    clearCountdown();
     setShotIndex(1);
     setShotStatus("AI가 포즈를 분석할 사진을 준비해 주세요");
     setCameraReady(false);
@@ -590,8 +595,7 @@ export function BoothApp() {
         setTagSelection(defaultKeywords(data.analysis));
         setStep("tag_select");
       } catch (analysisError) {
-        setCountdown(null);
-        setCountdownLabel(null);
+        clearCountdown();
         setError(analysisError instanceof Error ? analysisError.message : "태그 분석에 실패했습니다");
       }
     },
@@ -604,12 +608,12 @@ export function BoothApp() {
       setError(null);
       setShotIndex(1);
       setShotStatus("분석용 사진을 위한 포즈를 준비해 주세요");
-      await runCountdown(runId, PREP_COUNTDOWN_VALUES, "준비 시간");
+      await runCountdown(runId, PREP_COUNTDOWN_VALUES, "포즈 준비", "prep");
       if (flowRunRef.current !== runId) {
         return;
       }
       setShotStatus("분석용 사진을 촬영합니다");
-      await runCountdown(runId, COUNTDOWN_VALUES, "촬영");
+      await runCountdown(runId, COUNTDOWN_VALUES, "촬영", "shutter");
       if (flowRunRef.current !== runId) {
         return;
       }
@@ -621,8 +625,7 @@ export function BoothApp() {
       setShotStatus("분석용 사진 저장 완료");
       await analyzeFirstPhoto(captured, runId);
     } catch (captureError) {
-      setCountdown(null);
-      setCountdownLabel(null);
+      clearCountdown();
       setError(captureError instanceof Error ? captureError.message : "분석용 사진 촬영에 실패했습니다");
     }
   }, [activeRun, analyzeFirstPhoto]);
@@ -643,12 +646,12 @@ export function BoothApp() {
         }
         setShotIndex(index);
         setShotStatus(`${index}번째 사진을 위한 포즈를 준비해 주세요`);
-        await runCountdown(runId, PREP_COUNTDOWN_VALUES, index === 1 ? "준비 시간" : "포즈 변경");
+        await runCountdown(runId, PREP_COUNTDOWN_VALUES, index === 1 ? "포즈 준비" : "포즈 변경", "prep");
         if (flowRunRef.current !== runId) {
           return;
         }
         setShotStatus(`${index}번째 사진을 촬영합니다`);
-        await runCountdown(runId, COUNTDOWN_VALUES, "촬영");
+        await runCountdown(runId, COUNTDOWN_VALUES, "촬영", "shutter");
         if (flowRunRef.current !== runId) {
           return;
         }
@@ -664,8 +667,7 @@ export function BoothApp() {
         setStep("select_photos");
       }
     } catch (captureError) {
-      setCountdown(null);
-      setCountdownLabel(null);
+      clearCountdown();
       setError(captureError instanceof Error ? captureError.message : "최종 사진 촬영에 실패했습니다");
     }
   }, [activeRun]);
@@ -922,7 +924,7 @@ export function BoothApp() {
 
   return (
     <main className="kiosk-root">
-      <Countdown value={countdown} label={countdownLabel} />
+      <Countdown value={countdownMode === "prep" ? countdown : null} label={countdownLabel} variant="prep" />
       <div className="photoism-theme kiosk-screen bg-[#050505] text-[#f4f1e8]">
         <KioskHeader step={step} onRestart={() => void restart()} />
 
@@ -1090,7 +1092,9 @@ export function BoothApp() {
                     active={cameraActive}
                     onReadyChange={onReadyChange}
                     variant="kiosk"
-                  />
+                  >
+                    <Countdown value={countdownMode === "shutter" ? countdown : null} label={countdownLabel} variant="shutter" />
+                  </CameraPreview>
                   <div className="absolute bottom-6 left-6 right-6 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#050505] px-7 py-4 text-center text-3xl font-black text-[#f4f1e8]">
                     {step === "analysis_capture" ? "AI 분석용 1장 촬영" : `${FINAL_CAPTURE_COUNT}장 자동 촬영`}
                   </div>

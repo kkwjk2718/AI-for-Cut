@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Camera, CameraOff } from "lucide-react";
 
 export interface CameraPreviewHandle {
@@ -9,13 +9,14 @@ export interface CameraPreviewHandle {
 
 interface CameraPreviewProps {
   active: boolean;
+  children?: ReactNode;
   muted?: boolean;
   onReadyChange?: (ready: boolean) => void;
   variant?: "default" | "kiosk";
 }
 
 export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>(
-  function CameraPreview({ active, muted = true, onReadyChange, variant = "default" }, ref) {
+  function CameraPreview({ active, children, muted = true, onReadyChange, variant = "default" }, ref) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
             <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/18" />
           </>
         )}
+        {children}
         {!ready && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#111827] text-white">
             {error ? <CameraOff className="h-16 w-16" /> : <Camera className="h-16 w-16" />}
