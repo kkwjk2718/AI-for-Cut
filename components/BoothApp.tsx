@@ -1,0 +1,973 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Camera,
+  Check,
+  Home,
+  Mail,
+  RotateCcw,
+  Sparkles,
+  Tags,
+  Wand2,
+} from "lucide-react";
+import { CameraPreview, type CameraPreviewHandle } from "./CameraPreview";
+import { Countdown } from "./Countdown";
+import { EmailForm } from "./EmailForm";
+import { applyBeautyFilter, BEAUTY_OPTIONS, type BeautyStrength } from "@/lib/client-beauty";
+import { removeBackgroundDataUrl } from "@/lib/client-segmentation";
+import type { ApiResponse, KeywordCategory, PoseAnalysis, SelectedKeywords } from "@/lib/types";
+
+type Step =
+  | "idle"
+  | "capture"
+  | "analysis_loading"
+  | "tag_select"
+  | "select_photos"
+  | "uploading"
+  | "compose"
+  | "result"
+  | "email"
+  | "complete";
+
+type BackgroundStatus = "idle" | "generating" | "ready" | "error";
+
+const CATEGORIES: KeywordCategory[] = ["theme", "mood", "color", "effect"];
+const CATEGORY_LABELS: Record<KeywordCategory, string> = {
+  theme: "테마",
+  mood: "분위기",
+  color: "색감",
+  effect: "효과",
+};
+const EVENT_TITLE = "2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌";
+const STAGE_LABELS = ["시작", "촬영", "태그", "선택", "완성"];
+const BACKGROUND_STAGES = [
+  "선택한 태그 정리",
+  "배경 콘셉트 구성",
+  "이미지 생성 요청",
+  "사진 합성 준비",
+];
+
+const STEP_STAGE: Record<Step, number> = {
+  idle: 0,
+  capture: 1,
+  analysis_loading: 2,
+  tag_select: 2,
+  select_photos: 3,
+  uploading: 3,
+  compose: 4,
+  result: 4,
+  email: 4,
+  complete: 4,
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function postJson<T>(url: string, body?: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = (await response.json()) as ApiResponse<T>;
+  if (!payload.ok) {
+    throw new Error(payload.error);
+  }
+  return payload.data;
+}
+
+function defaultKeywords(analysis: PoseAnalysis): SelectedKeywords {
+  return CATEGORIES.reduce((acc, category) => {
+    acc[category] = analysis.recommended_keywords[category][0];
+    return acc;
+  }, {} as SelectedKeywords);
+}
+
+function KioskButton({
+  children,
+  onClick,
+  disabled,
+  tone = "primary",
+  className = "",
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: "primary" | "secondary" | "danger";
+  className?: string;
+}) {
+  const classes = {
+    primary: "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]",
+    secondary: "border-[#f4f1e8] bg-transparent text-[#f4f1e8]",
+    danger: "border-[#f04438] bg-[#f04438] text-white",
+  };
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex min-h-[96px] items-center justify-center gap-4 rounded-[4px] border-[3px] px-8 text-4xl font-black active:translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-35 ${classes[tone]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function KioskHeader({ step, onRestart }: { step: Step; onRestart: () => void }) {
+  const activeStage = STEP_STAGE[step];
+
+  return (
+    <header className="grid h-[96px] shrink-0 grid-cols-[1fr_auto] items-center border-b-[3px] border-[#f4f1e8] bg-[#050505] px-9 text-[#f4f1e8]">
+      <div className="flex min-w-0 items-center gap-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/ieum-logo.png" alt="IEUM" className="h-12 w-24 object-contain" />
+        <div className="min-w-0">
+          <p className="safe-text truncate text-xl font-black">{EVENT_TITLE}</p>
+          <p className="text-sm font-black tracking-[0.24em] text-[#f4f1e8]/55">FESTIVAL PHOTO</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="flex gap-2">
+          {STAGE_LABELS.map((label, index) => (
+            <div
+              key={label}
+              className={`flex h-11 min-w-[88px] items-center justify-center rounded-[4px] border-2 px-3 text-sm font-black ${
+                index <= activeStage
+                  ? "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
+                  : "border-[#f4f1e8]/55 bg-transparent text-[#f4f1e8]/55"
+              }`}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+        {step !== "idle" && step !== "complete" && (
+          <button
+            type="button"
+            onClick={onRestart}
+            className="flex h-16 w-16 items-center justify-center rounded-[4px] border-[3px] border-[#f4f1e8] bg-transparent text-[#f4f1e8] active:translate-y-[2px]"
+            aria-label="처음으로"
+          >
+            <Home className="h-8 w-8" />
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function StepTitle({
+  eyebrow,
+  title,
+  detail,
+  right,
+  compact = false,
+}: {
+  eyebrow: string;
+  title: string;
+  detail?: string;
+  right?: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <div className="flex items-end justify-between gap-8 border-b-[3px] border-[#f4f1e8] pb-5 text-[#f4f1e8]">
+      <div className="grid gap-1">
+        <p className="text-xl font-black tracking-[0.18em] text-[#f4f1e8]/58">{eyebrow}</p>
+        <h2 className={`safe-text font-black leading-[1.05] ${compact ? "text-5xl" : "text-6xl"}`}>{title}</h2>
+        {detail && <p className="safe-text max-w-[980px] text-2xl font-bold text-[#f4f1e8]/64">{detail}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function LoadingPanel({
+  icon,
+  title,
+  detail,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="grid h-full place-items-center text-center text-[#f4f1e8]">
+      <div className="grid gap-7">
+        <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border-[4px] border-[#f4f1e8] bg-transparent">
+          {icon}
+        </div>
+        <div className="grid gap-3">
+          <h2 className="safe-text text-6xl font-black">{title}</h2>
+          <p className="safe-text text-3xl font-bold text-[#f4f1e8]/62">{detail}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ErrorPanel({ message, onRetry, onRestart }: { message: string; onRetry: () => void; onRestart: () => void }) {
+  return (
+    <div className="mx-auto grid max-w-[920px] gap-6 rounded-[4px] border-[3px] border-[#f04438] bg-[#0b0b0b] p-8 text-[#f4f1e8]">
+      <div className="flex items-start gap-5">
+        <AlertTriangle className="mt-1 h-12 w-12 shrink-0 text-[#f04438]" />
+        <div className="grid gap-2">
+          <h2 className="text-4xl font-black">일시적인 문제가 생겼습니다</h2>
+          <p className="safe-text text-2xl font-bold text-[#f4f1e8]/68">{message}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <KioskButton onClick={onRetry} tone="primary">
+          <RotateCcw className="h-10 w-10" />
+          다시 시도
+        </KioskButton>
+        <KioskButton onClick={onRestart} tone="secondary">
+          <Home className="h-10 w-10" />
+          처음으로
+        </KioskButton>
+      </div>
+    </div>
+  );
+}
+
+function FramePreviewMockup() {
+  return (
+    <div className="grid w-[600px] gap-5 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#050505] p-7">
+      <div className="grid grid-cols-2 gap-5">
+        {[1, 2, 3, 4].map((index) => (
+          <div
+            key={index}
+            className="grid aspect-[3/4] place-items-center border-[3px] border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
+          >
+            <span className="text-3xl font-black">{index}</span>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-[84px_1fr_110px] items-center gap-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/school-mark.png" alt="경남과학고등학교" className="h-20 w-20 rounded-full bg-[#f4f1e8] object-cover" />
+        <div className="text-center">
+          <p className="text-lg font-black leading-tight text-[#f4f1e8]">경남과학고등학교</p>
+          <p className="mt-1 text-sm font-black tracking-[0.18em] text-[#f4f1e8]/62">FESTIVAL FRAME</p>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/keuni-deuri-hands.png" alt="크니 드리" className="h-20 w-[110px] object-contain" />
+      </div>
+    </div>
+  );
+}
+
+function BeautySelector({
+  value,
+  onChange,
+}: {
+  value: BeautyStrength;
+  onChange: (value: BeautyStrength) => void;
+}) {
+  return (
+    <div className="grid gap-4 rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-5 text-[#f4f1e8]">
+      <div className="flex items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <p className="text-lg font-black tracking-[0.18em] text-[#f4f1e8]/58">촬영 설정</p>
+          <h3 className="text-3xl font-black">얼굴 보정</h3>
+        </div>
+        <span className="rounded-[4px] bg-[#f4f1e8] px-4 py-2 text-xl font-black text-[#050505]">
+          {BEAUTY_OPTIONS.find((option) => option.value === value)?.label}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {BEAUTY_OPTIONS.map((option) => {
+          const active = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              className={`grid min-h-[86px] content-center gap-1 rounded-[4px] border-[3px] px-3 text-center active:translate-y-[2px] ${
+                active
+                  ? "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
+                  : "border-[#f4f1e8]/70 bg-transparent text-[#f4f1e8]"
+              }`}
+            >
+              <span className="text-2xl font-black">{option.label}</span>
+              <span className={`text-base font-black ${active ? "text-[#050505]/70" : "text-[#f4f1e8]/58"}`}>
+                {option.caption}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CaptureRail({ captured, activeIndex }: { captured: string[]; activeIndex: number }) {
+  return (
+    <div className="grid grid-cols-7 gap-3">
+      {Array.from({ length: 7 }, (_, index) => {
+        const src = captured[index];
+        return (
+          <div
+            key={index}
+            className={`relative aspect-[3/4] overflow-hidden rounded-[3px] border-[3px] ${
+              activeIndex === index + 1 ? "border-[#f4f1e8]" : "border-[#f4f1e8]/38"
+            }`}
+          >
+            {src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={src} alt={`${index + 1}번 촬영 사진`} className="h-full w-full object-cover" />
+            ) : (
+              <div className="grid h-full place-items-center bg-[#111] text-xl font-black text-[#f4f1e8]/45">
+                {index + 1}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BackgroundProgress({
+  status,
+  progress,
+  error,
+}: {
+  status: BackgroundStatus;
+  progress: number;
+  error: string | null;
+}) {
+  const activeStage = Math.min(BACKGROUND_STAGES.length - 1, Math.floor((progress / 100) * BACKGROUND_STAGES.length));
+
+  return (
+    <div className="grid gap-4 rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-5 text-[#f4f1e8]">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-lg font-black tracking-[0.18em] text-[#f4f1e8]/58">배경 생성</p>
+          <h3 className="text-3xl font-black">
+            {status === "ready" ? "배경 준비 완료" : status === "error" ? "배경 생성 실패" : "배경을 만들고 있습니다"}
+          </h3>
+        </div>
+        <div className="text-3xl font-black">{status === "ready" ? "100%" : `${Math.round(progress)}%`}</div>
+      </div>
+
+      <div className="ai-progress-track h-4 overflow-hidden rounded-full bg-[#f4f1e8]/18">
+        <div className="ai-progress-fill h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
+      </div>
+
+      {error ? (
+        <p className="safe-text text-xl font-black text-[#f04438]">{error}</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {BACKGROUND_STAGES.map((label, index) => (
+            <div
+              key={label}
+              className={`ai-generation-step rounded-[4px] border-2 px-4 py-3 text-lg font-black ${
+                index <= activeStage
+                  ? "is-active border-[#f4f1e8] text-[#f4f1e8]"
+                  : "border-[#f4f1e8]/26 text-[#f4f1e8]/42"
+              }`}
+            >
+              <span className="ai-generation-dot" aria-hidden="true" />
+              {label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function BoothApp() {
+  const cameraRef = useRef<CameraPreviewHandle | null>(null);
+  const captureStartedRef = useRef(false);
+  const flowRunRef = useRef(0);
+  const [step, setStep] = useState<Step>("idle");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [shotIndex, setShotIndex] = useState(1);
+  const [shotStatus, setShotStatus] = useState("카메라를 준비하고 있습니다");
+  const [analysis, setAnalysis] = useState<PoseAnalysis | null>(null);
+  const [tagSelection, setTagSelection] = useState<SelectedKeywords | null>(null);
+  const [selectedPhotoIndices, setSelectedPhotoIndices] = useState<number[]>([]);
+  const [beautyStrength, setBeautyStrength] = useState<BeautyStrength>(2);
+  const [backgroundStatus, setBackgroundStatus] = useState<BackgroundStatus>("idle");
+  const [backgroundProgress, setBackgroundProgress] = useState(0);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [finalUrl, setFinalUrl] = useState<string | null>(null);
+  const [completeSeconds, setCompleteSeconds] = useState(10);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeRun = useCallback(() => flowRunRef.current, []);
+  const onReadyChange = useCallback((ready: boolean) => setCameraReady(ready), []);
+  const cameraActive = step === "capture";
+  const selectedReady = selectedPhotoIndices.length === 4;
+
+  function requireSession(): string {
+    if (!sessionId) {
+      throw new Error("세션이 준비되지 않았습니다");
+    }
+    return sessionId;
+  }
+
+  async function runCountdown(runId: number): Promise<void> {
+    for (const value of [5, 4, 3, 2, 1]) {
+      if (flowRunRef.current !== runId) {
+        return;
+      }
+      setCountdown(value);
+      await sleep(1000);
+    }
+    setCountdown(null);
+  }
+
+  async function start() {
+    try {
+      flowRunRef.current += 1;
+      captureStartedRef.current = false;
+      setError(null);
+      setFinalUrl(null);
+      setCapturedPhotos([]);
+      setSelectedPhotoIndices([]);
+      setAnalysis(null);
+      setTagSelection(null);
+      setBackgroundStatus("idle");
+      setBackgroundProgress(0);
+      setBackgroundError(null);
+      setUploadStatus("");
+      setShotIndex(1);
+      setShotStatus("카메라를 준비하고 있습니다");
+      setCameraReady(false);
+      const data = await postJson<{ sessionId: string; expiresAt: string }>("/api/session/start");
+      setSessionId(data.sessionId);
+      setStep("capture");
+    } catch (startError) {
+      setError(startError instanceof Error ? startError.message : "세션을 시작하지 못했습니다");
+    }
+  }
+
+  async function restart() {
+    const id = sessionId;
+    flowRunRef.current += 1;
+    captureStartedRef.current = false;
+    setCountdown(null);
+    setStep("idle");
+    setSessionId(null);
+    setCameraReady(false);
+    setCapturedPhotos([]);
+    setSelectedPhotoIndices([]);
+    setAnalysis(null);
+    setTagSelection(null);
+    setBackgroundStatus("idle");
+    setBackgroundProgress(0);
+    setBackgroundError(null);
+    setUploadStatus("");
+    setFinalUrl(null);
+    setCompleteSeconds(10);
+    setError(null);
+    if (id) {
+      await fetch("/api/session/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: id }),
+      }).catch(() => undefined);
+    }
+  }
+
+  const analyzeFirstPhoto = useCallback(
+    async (firstPhoto: string, runId: number) => {
+      try {
+        setStep("analysis_loading");
+        const data = await postJson<{ analysis: PoseAnalysis }>("/api/analyze-pose", {
+          sessionId: requireSession(),
+          imageDataUrl: firstPhoto,
+        });
+        if (flowRunRef.current !== runId) {
+          return;
+        }
+        setAnalysis(data.analysis);
+        setTagSelection(defaultKeywords(data.analysis));
+        setStep("tag_select");
+      } catch (analysisError) {
+        setCountdown(null);
+        setError(analysisError instanceof Error ? analysisError.message : "태그 분석에 실패했습니다");
+      }
+    },
+    [sessionId],
+  );
+
+  const captureSevenPhotos = useCallback(async () => {
+    const runId = activeRun();
+    const photos: string[] = [];
+    try {
+      setError(null);
+      for (let index = 1; index <= 7; index += 1) {
+        if (flowRunRef.current !== runId) {
+          return;
+        }
+        setShotIndex(index);
+        setShotStatus(`${index}번째 사진을 준비해 주세요`);
+        await sleep(index === 1 ? 500 : 900);
+        await runCountdown(runId);
+        if (flowRunRef.current !== runId) {
+          return;
+        }
+        const captured = cameraRef.current?.capture("image/png");
+        if (!captured) {
+          throw new Error("사진을 촬영하지 못했습니다");
+        }
+        photos.push(captured);
+        setCapturedPhotos([...photos]);
+        setShotStatus(`${index}번째 사진 저장 완료`);
+      }
+      if (photos[0] && flowRunRef.current === runId) {
+        await analyzeFirstPhoto(photos[0], runId);
+      }
+    } catch (captureError) {
+      setCountdown(null);
+      setError(captureError instanceof Error ? captureError.message : "7장 촬영에 실패했습니다");
+    }
+  }, [activeRun, analyzeFirstPhoto]);
+
+  useEffect(() => {
+    if (step !== "capture" || !cameraReady || captureStartedRef.current) {
+      return;
+    }
+    captureStartedRef.current = true;
+    void captureSevenPhotos();
+  }, [step, cameraReady, captureSevenPhotos]);
+
+  const startBackgroundGeneration = useCallback(
+    async (selectedKeywords: SelectedKeywords) => {
+      const runId = activeRun();
+      try {
+        setBackgroundStatus("generating");
+        setBackgroundProgress(8);
+        setBackgroundError(null);
+        await postJson<{ backgroundUrl: string; usedFallback: boolean }>("/api/generate-background", {
+          sessionId: requireSession(),
+          selectedKeywords,
+        });
+        if (flowRunRef.current !== runId) {
+          return;
+        }
+        setBackgroundProgress(100);
+        setBackgroundStatus("ready");
+      } catch (backgroundGenerationError) {
+        if (flowRunRef.current !== runId) {
+          return;
+        }
+        setBackgroundStatus("error");
+        setBackgroundError(
+          backgroundGenerationError instanceof Error ? backgroundGenerationError.message : "배경 생성에 실패했습니다",
+        );
+      }
+    },
+    [activeRun, sessionId],
+  );
+
+  useEffect(() => {
+    if (backgroundStatus !== "generating") {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setBackgroundProgress((value) => Math.min(96, value + Math.max(2, (96 - value) * 0.12)));
+    }, 700);
+    return () => window.clearInterval(interval);
+  }, [backgroundStatus]);
+
+  function chooseTagsAndContinue() {
+    if (!tagSelection) {
+      return;
+    }
+    setSelectedPhotoIndices([]);
+    setStep("select_photos");
+    void startBackgroundGeneration(tagSelection);
+  }
+
+  function togglePhoto(index: number) {
+    setSelectedPhotoIndices((current) => {
+      if (current.includes(index)) {
+        return current.filter((item) => item !== index);
+      }
+      if (current.length >= 4) {
+        return current;
+      }
+      return [...current, index];
+    });
+  }
+
+  const composeResult = useCallback(async () => {
+    setStep("compose");
+    const data = await postJson<{ finalUrl: string }>("/api/compose", {
+      sessionId: requireSession(),
+    });
+    setFinalUrl(`${data.finalUrl}?t=${Date.now()}`);
+    setStep("result");
+  }, [sessionId]);
+
+  async function uploadSelectedPhotos() {
+    try {
+      if (!selectedReady) {
+        throw new Error("최종 사진 4장을 선택해 주세요");
+      }
+      if (backgroundStatus !== "ready") {
+        throw new Error("배경 이미지가 아직 준비되지 않았습니다");
+      }
+      setStep("uploading");
+      for (let order = 0; order < selectedPhotoIndices.length; order += 1) {
+        const sourceIndex = selectedPhotoIndices[order];
+        const raw = capturedPhotos[sourceIndex];
+        if (!raw) {
+          throw new Error("선택한 사진을 찾지 못했습니다");
+        }
+        setUploadStatus(`${order + 1}/4 사진 보정 중`);
+        const beautified = await applyBeautyFilter(raw, beautyStrength);
+        setUploadStatus(`${order + 1}/4 배경 분리 중`);
+        const segmented = await removeBackgroundDataUrl(beautified);
+        setUploadStatus(`${order + 1}/4 저장 중`);
+        await postJson<{ uploaded: boolean; completedShots: number }>("/api/upload-shot", {
+          sessionId: requireSession(),
+          index: order + 1,
+          imageDataUrl: segmented,
+        });
+      }
+      await composeResult();
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "사진 처리에 실패했습니다");
+    }
+  }
+
+  async function sendEmail(email: string) {
+    try {
+      setError(null);
+      await postJson<{ sent: boolean; skipped: boolean; messageId?: string }>("/api/send-email", {
+        sessionId: requireSession(),
+        email,
+      });
+      setSessionId(null);
+      setCompleteSeconds(10);
+      setStep("complete");
+    } catch (emailError) {
+      setError(emailError instanceof Error ? emailError.message : "메일 전송에 실패했습니다");
+    }
+  }
+
+  useEffect(() => {
+    if (step !== "complete") {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setCompleteSeconds((value) => Math.max(value - 1, 0));
+    }, 1000);
+    const timeout = window.setTimeout(() => {
+      void restart();
+    }, 10000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [step]);
+
+  const retry = () => {
+    const lastStep = step;
+    setError(null);
+    if (lastStep === "select_photos" && tagSelection) {
+      void startBackgroundGeneration(tagSelection);
+      return;
+    }
+    void restart();
+  };
+
+  return (
+    <main className="kiosk-root">
+      <Countdown value={countdown} />
+      <div className="photoism-theme kiosk-screen bg-[#050505] text-[#f4f1e8]">
+        <KioskHeader step={step} onRestart={() => void restart()} />
+
+        <section className="grid min-h-0 flex-1 px-9 py-7">
+          {error && (
+            <div className="self-center">
+              <ErrorPanel message={error} onRetry={retry} onRestart={() => void restart()} />
+            </div>
+          )}
+
+          {!error && step === "idle" && (
+            <div className="grid h-full grid-cols-[720px_1fr] items-center gap-14">
+              <div className="grid place-items-center">
+                <FramePreviewMockup />
+              </div>
+
+              <div className="grid content-center gap-7">
+                <div className="grid gap-4">
+                  <p className="text-2xl font-black tracking-[0.26em] text-[#f4f1e8]/58">FESTIVAL PHOTO</p>
+                  <h1 className="safe-text text-[74px] font-black leading-[0.98]">네컷 촬영</h1>
+                  <p className="safe-text max-w-[820px] text-3xl font-black leading-[1.25]">{EVENT_TITLE}</p>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 text-center">
+                  {["7장 촬영", "태그 선택", "4장 선택", "메일 전송"].map((label) => (
+                    <div key={label} className="rounded-[4px] border-[2px] border-[#f4f1e8]/55 px-4 py-5 text-xl font-black">
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                <KioskButton onClick={() => void start()} className="min-h-[128px] text-5xl">
+                  촬영 시작
+                </KioskButton>
+                <p className="safe-text text-center text-xl font-bold text-[#f4f1e8]/58">
+                  촬영 이미지는 결과 생성과 메일 전송에만 사용됩니다. 시작하면 이에 동의한 것으로 처리됩니다.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "capture" && (
+            <div className="grid min-h-0 grid-cols-[1fr_620px] gap-9">
+              <div className="grid min-h-0 place-items-center">
+                <div className="relative h-full max-h-[820px] w-full max-w-[615px]">
+                  <CameraPreview
+                    ref={cameraRef}
+                    active={cameraActive}
+                    onReadyChange={onReadyChange}
+                    variant="kiosk"
+                  />
+                  <div className="absolute bottom-6 left-6 right-6 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#050505] px-7 py-4 text-center text-3xl font-black text-[#f4f1e8]">
+                    7장 자동 촬영
+                  </div>
+                </div>
+              </div>
+              <div className="grid content-center gap-8">
+                <StepTitle
+                  eyebrow="01 촬영"
+                  title={`${shotIndex}/7 사진`}
+                  detail={shotStatus}
+                  compact
+                  right={<div className="rounded-[4px] bg-[#f4f1e8] px-6 py-4 text-2xl font-black text-[#050505]">AUTO</div>}
+                />
+                <CaptureRail captured={capturedPhotos} activeIndex={shotIndex} />
+                <div className="rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-7">
+                  <p className="safe-text text-4xl font-black leading-tight">첫 번째 사진으로 배경 태그를 만들고, 나중에 마음에 드는 4장을 고릅니다.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "analysis_loading" && (
+            <LoadingPanel
+              icon={<Tags className="h-16 w-16 animate-pulse" />}
+              title="태그를 만들고 있습니다"
+              detail="첫 번째 사진을 기준으로 어울리는 배경 단서를 정리합니다"
+            />
+          )}
+
+          {!error && step === "tag_select" && analysis && tagSelection && (
+            <div className="grid min-h-0 grid-cols-[430px_1fr] gap-9">
+              <div className="grid content-center gap-5">
+                <div className="overflow-hidden rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#0b0b0b] p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={capturedPhotos[0]} alt="태그 기준 사진" className="aspect-[3/4] w-full object-cover" />
+                </div>
+                <p className="text-center text-xl font-black text-[#f4f1e8]/58">1번 사진 기준 태그</p>
+              </div>
+
+              <div className="grid content-center gap-7">
+                <StepTitle
+                  eyebrow="02 특징 선택"
+                  title="배경 특징 선택"
+                  detail="추천 묶음이 아니라 장면, 분위기, 색감, 효과를 각각 하나씩 고릅니다"
+                  compact
+                />
+
+                <div className="grid gap-4">
+                  {CATEGORIES.map((category) => (
+                    <div
+                      key={category}
+                      className="grid grid-cols-[148px_1fr] items-center gap-4 rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-4"
+                    >
+                      <div className="grid gap-2">
+                        <p className="text-lg font-black tracking-[0.14em] text-[#f4f1e8]/48">특징</p>
+                        <h3 className="text-3xl font-black">{CATEGORY_LABELS[category]}</h3>
+                        <p className="safe-text rounded-[3px] bg-[#f4f1e8] px-3 py-2 text-lg font-black text-[#050505]">
+                          {tagSelection[category]}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-6 gap-3">
+                        {analysis.recommended_keywords[category].map((keyword) => {
+                          const active = tagSelection[category] === keyword;
+                          return (
+                            <button
+                              key={keyword}
+                              type="button"
+                              onClick={() => setTagSelection((current) => current && { ...current, [category]: keyword })}
+                              className={`min-h-[74px] rounded-[4px] border-[3px] px-3 text-xl font-black active:translate-y-[2px] ${
+                                active
+                                  ? "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
+                                  : "border-[#f4f1e8]/60 bg-transparent text-[#f4f1e8]"
+                              }`}
+                            >
+                              {keyword}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <KioskButton onClick={chooseTagsAndContinue} className="min-h-[112px] text-4xl">
+                  태그 확정
+                  <ArrowRight className="h-11 w-11" />
+                </KioskButton>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "select_photos" && (
+            <div className="grid min-h-0 grid-cols-[1fr_560px] gap-8">
+              <div className="grid min-h-0 grid-rows-[auto_1fr] gap-6">
+                <StepTitle
+                  eyebrow="03 사진 선택"
+                  title={`최종 사진 ${selectedPhotoIndices.length}/4`}
+                  detail="마음에 드는 사진 4장을 선택해 주세요. 선택한 순서대로 최종 프레임에 들어갑니다."
+                  compact
+                />
+                <div className="grid min-h-0 grid-cols-4 gap-4">
+                  {capturedPhotos.map((photo, index) => {
+                    const selectedOrder = selectedPhotoIndices.indexOf(index);
+                    const selected = selectedOrder !== -1;
+                    return (
+                      <button
+                        key={photo}
+                        type="button"
+                        onClick={() => togglePhoto(index)}
+                        className={`relative overflow-hidden rounded-[4px] border-[4px] bg-[#0b0b0b] active:translate-y-[2px] ${
+                          selected ? "border-[#f4f1e8]" : "border-[#f4f1e8]/28"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo} alt={`${index + 1}번 사진`} className="aspect-[3/4] h-full w-full object-cover" />
+                        <span className="absolute left-3 top-3 rounded-[3px] bg-[#050505] px-3 py-1 text-xl font-black text-[#f4f1e8]">
+                          {index + 1}
+                        </span>
+                        {selected && (
+                          <span className="absolute right-3 top-3 grid h-12 w-12 place-items-center rounded-full bg-[#f4f1e8] text-2xl font-black text-[#050505]">
+                            {selectedOrder + 1}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid content-center gap-5">
+                <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
+                <BeautySelector value={beautyStrength} onChange={setBeautyStrength} />
+                <KioskButton
+                  onClick={() => void uploadSelectedPhotos()}
+                  disabled={!selectedReady || backgroundStatus !== "ready"}
+                  className="min-h-[108px] text-4xl"
+                >
+                  선택 완료
+                </KioskButton>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "uploading" && (
+            <LoadingPanel
+              icon={<Wand2 className="h-16 w-16 animate-pulse" />}
+              title="사진을 정리하고 있습니다"
+              detail={uploadStatus || "선택한 사진을 보정하고 저장합니다"}
+            />
+          )}
+
+          {!error && step === "compose" && (
+            <LoadingPanel
+              icon={<Camera className="h-16 w-16 animate-pulse" />}
+              title="네컷 사진을 만들고 있습니다"
+              detail="선택한 4장과 배경을 최종 프레임에 맞춰 합성합니다"
+            />
+          )}
+
+          {!error && step === "result" && finalUrl && (
+            <div className="grid min-h-0 grid-cols-[620px_1fr] gap-10">
+              <div className="grid min-h-0 place-items-center">
+                <div className="h-full max-h-[900px] rounded-[4px] border-[4px] border-[#f4f1e8] bg-[#050505] p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={finalUrl} alt="완성된 네컷" className="h-full w-full object-contain" />
+                </div>
+              </div>
+              <div className="grid content-center gap-8">
+                <StepTitle
+                  eyebrow="04 완성"
+                  title="사진이 완성되었습니다"
+                  detail="메일 주소를 입력하면 완성본을 받을 수 있습니다"
+                  compact
+                />
+                <div className="grid gap-5">
+                  <KioskButton onClick={() => setStep("email")} className="min-h-[128px] text-5xl">
+                    <Mail className="h-14 w-14" />
+                    메일 입력
+                  </KioskButton>
+                  <KioskButton onClick={() => void restart()} tone="secondary">
+                    <RotateCcw className="h-12 w-12" />
+                    처음으로
+                  </KioskButton>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "email" && (
+            <div className="grid min-h-0 grid-cols-[480px_1fr] gap-8">
+              <div className="grid content-center gap-8">
+                <StepTitle
+                  eyebrow="04 메일 입력"
+                  title="메일 주소 입력"
+                  detail="입력한 주소로 완성본을 전송합니다"
+                  compact
+                />
+                <div className="rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-6 text-2xl font-black leading-snug">
+                  앱 안의 키보드로만 입력됩니다. 주소 형식이 맞으면 전송 버튼이 활성화됩니다.
+                </div>
+              </div>
+              <EmailForm onSubmit={sendEmail} layout="landscape" />
+            </div>
+          )}
+
+          {!error && step === "complete" && (
+            <div className="grid place-items-center text-center text-[#f4f1e8]">
+              <div className="grid gap-8">
+                <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full border-[4px] border-[#f4f1e8] bg-transparent">
+                  <Check className="h-20 w-20" />
+                </div>
+                <div className="grid gap-4">
+                  <h2 className="text-7xl font-black">전송 완료</h2>
+                  <p className="text-3xl font-bold text-[#f4f1e8]/65">
+                    {completeSeconds}초 뒤 처음 화면으로 돌아갑니다
+                  </p>
+                </div>
+                <KioskButton onClick={() => void restart()} tone="secondary">
+                  <Home className="h-12 w-12" />
+                  처음 화면
+                </KioskButton>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,294 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #050505;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: #f4f1e8;
+  background: #050505;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+html {
+  overscroll-behavior: none;
+}
+
+body {
+  touch-action: manipulation;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 4px solid rgba(244, 241, 232, 0.42);
+  outline-offset: 2px;
+}
+
+.camera-frame {
+  aspect-ratio: 3 / 4;
+}
+
+.safe-text {
+  overflow-wrap: anywhere;
+}
+
+.kiosk-root {
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #050505;
+}
+
+.kiosk-screen {
+  width: min(100vw, 1920px);
+  height: min(100dvh, 1080px);
+  min-width: 1024px;
+  min-height: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.photoism-theme {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 28%),
+    #050505 !important;
+  color: #f4f1e8 !important;
+}
+
+.photoism-theme header,
+.photoism-theme .bg-white {
+  background-color: #0b0b0b !important;
+  color: #f4f1e8 !important;
+}
+
+.photoism-theme [class*="bg-[#fbfbf7]"],
+.photoism-theme [class*="bg-[#edf2f7]"],
+.photoism-theme [class*="bg-[#eaf6ff]"],
+.photoism-theme [class*="bg-[#fff0d9]"],
+.photoism-theme [class*="bg-[#effaf2]"],
+.photoism-theme [class*="bg-[#111827]"] {
+  background-color: #050505 !important;
+}
+
+.photoism-theme [class*="bg-[#12325b]"] {
+  background-color: #f4f1e8 !important;
+  color: #050505 !important;
+}
+
+.photoism-theme [class*="text-[#12325b]"] {
+  color: #f4f1e8 !important;
+}
+
+.photoism-theme [class*="text-[#12325b]/"] {
+  color: rgba(244, 241, 232, 0.62) !important;
+}
+
+.photoism-theme [class*="text-white"] {
+  color: #f4f1e8 !important;
+}
+
+.photoism-theme [class*="bg-[#12325b]"][class*="text-white"],
+.photoism-theme [class*="bg-[#12325b]"] [class*="text-white"],
+.photoism-theme [class*="bg-[#12325b]"] svg {
+  color: #050505 !important;
+}
+
+.photoism-theme [class*="border-[#12325b]"],
+.photoism-theme [class*="border-[#12325b]/"] {
+  border-color: rgba(244, 241, 232, 0.78) !important;
+}
+
+.photoism-theme [class*="bg-white"] {
+  background-color: #0b0b0b !important;
+}
+
+.photoism-theme [class*="placeholder:text-[#12325b]"]::placeholder,
+.photoism-theme input::placeholder {
+  color: rgba(244, 241, 232, 0.32) !important;
+}
+
+.photoism-theme img[src*="ieum-logo"] {
+  padding: 5px;
+  border-radius: 4px;
+  background: #f4f1e8;
+  filter: none;
+}
+
+@keyframes ai-border-rotate {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes ai-light-sweep {
+  0% {
+    background-position: -160% 0, 0 0;
+  }
+  100% {
+    background-position: 160% 0, 0 0;
+  }
+}
+
+@keyframes ai-progress-flow {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 180px 0;
+  }
+}
+
+@keyframes ai-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.76);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.ai-generation-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: transparent !important;
+  box-shadow:
+    0 0 0 1px rgba(244, 241, 232, 0.18),
+    0 0 70px rgba(94, 234, 212, 0.12);
+}
+
+.ai-generation-panel::before,
+.ai-generation-panel::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.ai-generation-panel::before {
+  inset: -90px;
+  z-index: -2;
+  background:
+    conic-gradient(
+      from 0deg,
+      rgba(91, 141, 255, 0.95),
+      rgba(170, 95, 255, 0.98),
+      rgba(255, 107, 214, 0.96),
+      rgba(255, 207, 87, 0.92),
+      rgba(98, 255, 194, 0.95),
+      rgba(91, 141, 255, 0.95)
+    );
+  animation: ai-border-rotate 4.8s linear infinite;
+  opacity: 0.82;
+}
+
+.ai-generation-panel::after {
+  inset: 3px;
+  z-index: -1;
+  border-radius: 2px;
+  background:
+    linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.14) 42%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0.14) 58%, transparent 100%),
+    radial-gradient(110% 140% at 50% -20%, rgba(255, 255, 255, 0.22), transparent 42%),
+    radial-gradient(70% 100% at 8% 18%, rgba(91, 141, 255, 0.24), transparent 48%),
+    radial-gradient(70% 100% at 96% 24%, rgba(255, 107, 214, 0.2), transparent 44%),
+    #050505;
+  background-size:
+    45% 100%,
+    auto,
+    auto,
+    auto,
+    auto;
+  background-repeat: no-repeat;
+  animation: ai-light-sweep 3.2s ease-in-out infinite;
+}
+
+.ai-generation-panel.is-ready::before {
+  animation: none;
+  background: #f4f1e8;
+  opacity: 0.7;
+}
+
+.ai-generation-panel.is-error::before {
+  animation: none;
+  background: #f04438;
+  opacity: 0.9;
+}
+
+.ai-generation-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ai-progress-track {
+  box-shadow:
+    inset 0 0 0 1px rgba(244, 241, 232, 0.12),
+    0 0 18px rgba(94, 234, 212, 0.12);
+}
+
+.ai-progress-fill {
+  background:
+    linear-gradient(
+      90deg,
+      #7dd3fc,
+      #a78bfa,
+      #f0abfc,
+      #fde68a,
+      #86efac,
+      #7dd3fc
+    );
+  background-size: 180px 100%;
+  box-shadow:
+    0 0 20px rgba(125, 211, 252, 0.54),
+    0 0 34px rgba(240, 171, 252, 0.28);
+  animation: ai-progress-flow 1.4s linear infinite;
+}
+
+.ai-generation-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(5, 5, 5, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.ai-generation-step.is-active {
+  background: rgba(244, 241, 232, 0.08);
+  box-shadow: inset 0 0 22px rgba(244, 241, 232, 0.08);
+}
+
+.ai-generation-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 16px currentColor;
+  animation: ai-dot-pulse 1.25s ease-in-out infinite;
+}
