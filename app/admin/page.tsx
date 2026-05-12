@@ -77,6 +77,7 @@ export default async function AdminPage() {
   const records = await readAdminRecords();
   const totalCost = records.reduce((sum, record) => sum + record.aiCost.totalUsd, 0);
   const sentCount = records.filter((record) => record.email && !record.email.skipped).length;
+  const archivedImageCount = records.filter((record) => record.imageFile).length;
   const avgCost = records.length ? totalCost / records.length : 0;
 
   return (
@@ -108,7 +109,9 @@ export default async function AdminPage() {
         <section className="rounded-[28px] border-2 border-white/10 bg-white/8 p-6">
           <p className="safe-text text-xl font-bold leading-8 text-white/68">
             비용은 OpenAI usage token과 설정된 USD/1M token 단가로 계산한 AI 비용입니다.
-            카메라, Sharp 합성, Brevo 메일 비용은 포함하지 않습니다.
+            카메라, Sharp 합성, Brevo 메일 비용은 포함하지 않습니다. 기본 관리자 기록에는 얼굴 이미지가 저장되지 않으며,
+            사진 아카이브가 켜져 있고 사용자가 선택 저장에 동의한 경우에만 완성 사진을 보관합니다. 현재 보관 이미지:
+            {` ${archivedImageCount.toLocaleString()}장`}
           </p>
         </section>
 
@@ -124,12 +127,23 @@ export default async function AdminPage() {
                 className="grid gap-6 rounded-[32px] border-2 border-white/10 bg-white/10 p-6 shadow-panel lg:grid-cols-[320px_1fr]"
               >
                 <div className="grid gap-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/admin/image/${record.id}`}
-                    alt="완성된 네컷"
-                    className="w-full rounded-[24px] border-4 border-white bg-white object-contain"
-                  />
+                  {record.imageFile ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/admin/image/${record.id}`}
+                      alt="완성된 네컷"
+                      className="w-full rounded-[24px] border-4 border-white bg-white object-contain"
+                    />
+                  ) : (
+                    <div className="grid aspect-[2/3] place-items-center rounded-[24px] border-4 border-white/16 bg-[#101722]/72 p-6 text-center">
+                      <div className="grid gap-3">
+                        <p className="text-3xl font-black text-white">사진 미저장</p>
+                        <p className="safe-text text-xl font-bold leading-7 text-white/58">
+                          선택 저장 동의가 없거나 사진 아카이브가 꺼져 있습니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-[22px] bg-[#101722]/58 p-4">
                       <p className="text-lg font-bold text-white/58">네컷 1장</p>
@@ -148,6 +162,9 @@ export default async function AdminPage() {
                       <h2 className="safe-text text-4xl font-black">{dateTime(record.completedAt)}</h2>
                       <p className="mt-2 text-xl font-bold text-white/58">
                         {record.width}x{record.height} · {totalTokens(record.aiCost.lines).toLocaleString()} tokens
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-white/46">
+                        사진 저장: {record.imageFile ? "동의 및 보관" : "미보관"}
                       </p>
                     </div>
                     <span className="rounded-[18px] bg-[#5eead4] px-5 py-3 text-xl font-black text-[#101722]">

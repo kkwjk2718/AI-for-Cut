@@ -6,6 +6,11 @@ import { deleteSessionFiles, ensureSessionDir, ensureStorageRoot, getSessionDir,
 import { assertSessionId } from "./validators";
 
 const SESSION_FILE = "session.json";
+const PRIVACY_CONSENT_VERSION = "2026-05-privacy-v1";
+
+interface CreateSessionOptions {
+  archiveImageConsent?: boolean;
+}
 
 function ttlMinutes(): number {
   const value = Number(process.env.SESSION_TTL_MINUTES || "1440");
@@ -24,7 +29,7 @@ function metadataPath(sessionId: string): string {
   return path.join(getSessionDir(sessionId), SESSION_FILE);
 }
 
-export async function createSession(): Promise<BoothSession> {
+export async function createSession(options: CreateSessionOptions = {}): Promise<BoothSession> {
   await ensureStorageRoot();
   const id = randomUUID();
   const now = nowIso();
@@ -36,6 +41,12 @@ export async function createSession(): Promise<BoothSession> {
     state: "created",
     files: {
       shots: [],
+    },
+    privacyConsent: {
+      required: true,
+      archiveImage: Boolean(options.archiveImageConsent),
+      consentedAt: now,
+      version: PRIVACY_CONSENT_VERSION,
     },
   };
   await ensureSessionDir(id);

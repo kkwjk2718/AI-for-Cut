@@ -22,6 +22,7 @@ import type { ApiResponse, KeywordCategory, PoseAnalysis, SelectedKeywords } fro
 
 type Step =
   | "idle"
+  | "consent"
   | "capture"
   | "analysis_loading"
   | "tag_select"
@@ -52,6 +53,7 @@ const BACKGROUND_STAGES = [
 
 const STEP_STAGE: Record<Step, number> = {
   idle: 0,
+  consent: 0,
   capture: 1,
   analysis_loading: 2,
   tag_select: 2,
@@ -399,6 +401,7 @@ export function BoothApp() {
   const [tagSelection, setTagSelection] = useState<SelectedKeywords | null>(null);
   const [selectedPhotoIndices, setSelectedPhotoIndices] = useState<number[]>([]);
   const [beautyStrength, setBeautyStrength] = useState<BeautyStrength>(2);
+  const [archiveImageConsent, setArchiveImageConsent] = useState(false);
   const [backgroundStatus, setBackgroundStatus] = useState<BackgroundStatus>("idle");
   const [backgroundProgress, setBackgroundProgress] = useState(0);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
@@ -447,7 +450,10 @@ export function BoothApp() {
       setShotIndex(1);
       setShotStatus("카메라를 준비하고 있습니다");
       setCameraReady(false);
-      const data = await postJson<{ sessionId: string; expiresAt: string }>("/api/session/start");
+      const data = await postJson<{ sessionId: string; expiresAt: string }>("/api/session/start", {
+        privacyConsentAccepted: true,
+        archiveImageConsent,
+      });
       setSessionId(data.sessionId);
       setStep("capture");
     } catch (startError) {
@@ -467,6 +473,7 @@ export function BoothApp() {
     setSelectedPhotoIndices([]);
     setAnalysis(null);
     setTagSelection(null);
+    setArchiveImageConsent(false);
     setBackgroundStatus("idle");
     setBackgroundProgress(0);
     setBackgroundError(null);
@@ -722,12 +729,79 @@ export function BoothApp() {
                   ))}
                 </div>
 
-                <KioskButton onClick={() => void start()} className="min-h-[128px] text-5xl">
-                  촬영 시작
+                <KioskButton onClick={() => setStep("consent")} className="min-h-[128px] text-5xl">
+                  동의 화면으로
                 </KioskButton>
                 <p className="safe-text text-center text-xl font-bold text-[#f4f1e8]/58">
-                  촬영 이미지는 결과 생성과 메일 전송에만 사용됩니다. 시작하면 이에 동의한 것으로 처리됩니다.
+                  다음 화면에서 개인정보 수집 및 이용 내용을 확인한 뒤 촬영을 시작합니다.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "consent" && (
+            <div className="grid min-h-0 grid-cols-[1fr_560px] gap-10">
+              <div className="grid content-center gap-7">
+                <StepTitle
+                  eyebrow="00 개인정보 동의"
+                  title="촬영 전 동의가 필요합니다"
+                  detail="외부 손님 대상 행사 운영을 위해 수집 항목, 보관 기간, 외부 서비스를 확인해 주세요."
+                  compact
+                />
+
+                <div className="grid gap-4 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#0b0b0b] p-7">
+                  {[
+                    ["수집 항목", "촬영 사진, 생성 결과 이미지, 이메일 주소"],
+                    ["이용 목적", "AI 네컷사진 생성 및 이메일 발송"],
+                    ["보관 기간", "발송 완료 후 즉시 삭제, 오류 대응 시 최대 24시간"],
+                    ["외부 서비스", "OpenAI API, Brevo 이메일 API"],
+                    ["동의 거부 시", "이메일 발송형 촬영 서비스 이용 불가"],
+                    ["만 14세 미만", "보호자 또는 인솔자 동의 필요"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="grid grid-cols-[220px_1fr] gap-5 border-b-2 border-[#f4f1e8]/18 pb-4 last:border-b-0 last:pb-0">
+                      <p className="text-2xl font-black text-[#f4f1e8]/58">{label}</p>
+                      <p className="safe-text text-3xl font-black leading-tight text-[#f4f1e8]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid content-center gap-6">
+                <button
+                  type="button"
+                  onClick={() => setArchiveImageConsent((value) => !value)}
+                  className={`grid gap-5 rounded-[4px] border-[3px] p-7 text-left active:translate-y-[2px] ${
+                    archiveImageConsent
+                      ? "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
+                      : "border-[#f4f1e8]/72 bg-[#0b0b0b] text-[#f4f1e8]"
+                  }`}
+                >
+                  <div className="flex items-start gap-5">
+                    <span
+                      className={`mt-1 grid h-14 w-14 shrink-0 place-items-center rounded-[4px] border-[3px] ${
+                        archiveImageConsent ? "border-[#050505] bg-[#050505] text-[#f4f1e8]" : "border-[#f4f1e8] bg-transparent"
+                      }`}
+                    >
+                      {archiveImageConsent && <Check className="h-9 w-9" />}
+                    </span>
+                    <div className="grid gap-2">
+                      <p className="text-2xl font-black tracking-[0.16em] opacity-70">선택</p>
+                      <h3 className="safe-text text-4xl font-black leading-tight">
+                        행사 홍보 및 결과 전시를 위해 완성 사진 저장에 동의합니다.
+                      </h3>
+                    </div>
+                  </div>
+                  <p className={`safe-text text-xl font-bold leading-7 ${archiveImageConsent ? "text-[#050505]/68" : "text-[#f4f1e8]/58"}`}>
+                    선택하지 않아도 촬영과 이메일 발송은 진행됩니다. 기본 관리자 기록에는 완성 시간, 선택 키워드, AI 비용, 메일 상태만 남습니다.
+                  </p>
+                </button>
+
+                <KioskButton onClick={() => void start()} className="min-h-[128px] text-5xl">
+                  동의하고 시작하기
+                </KioskButton>
+                <KioskButton onClick={() => setStep("idle")} tone="secondary">
+                  처음 화면
+                </KioskButton>
               </div>
             </div>
           )}

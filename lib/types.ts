@@ -29,6 +29,13 @@ export interface SessionFiles {
   final?: string;
 }
 
+export interface PrivacyConsent {
+  required: true;
+  archiveImage: boolean;
+  consentedAt: string;
+  version: string;
+}
+
 export type AiCostKind = "pose_analysis" | "background_generation";
 
 export interface AiCostLine {
@@ -61,6 +68,7 @@ export interface BoothSession {
   expiresAt: string;
   state: SessionState;
   files: SessionFiles;
+  privacyConsent?: PrivacyConsent;
   recommendations?: PoseAnalysis;
   selectedKeywords?: SelectedKeywords;
   aiCost?: AiCostSummary;
@@ -73,9 +81,10 @@ export interface AdminPhotoRecord {
   createdAt: string;
   completedAt: string;
   updatedAt: string;
-  imageFile: string;
+  imageFile?: string;
   width: number;
   height: number;
+  archiveImageConsent?: boolean;
   selectedKeywords?: SelectedKeywords;
   poseSummary?: string;
   aiCost: AiCostSummary;
