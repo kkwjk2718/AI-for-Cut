@@ -48,6 +48,8 @@ const CATEGORY_LABELS: Record<KeywordCategory, string> = {
   effect: "효과",
 };
 const EVENT_TITLE = "2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌";
+const CLUB_NAME = "이음(IEUM)";
+const CLUB_SLOGAN = "- 기술로 사람과 사람을 잇다";
 const STAGE_LABELS = ["시작", "촬영", "태그", "선택", "완성"];
 const BACKGROUND_STAGES = [
   "선택한 태그 정리",
@@ -154,7 +156,9 @@ function KioskHeader({ step, onRestart }: { step: Step; onRestart: () => void })
         <img src="/brand/ieum-logo.png" alt="IEUM" className="h-12 w-24 object-contain" />
         <div className="min-w-0">
           <p className="safe-text truncate text-xl font-black">{EVENT_TITLE}</p>
-          <p className="text-sm font-black tracking-[0.24em] text-[#f4f1e8]/55">FESTIVAL PHOTO</p>
+          <p className="safe-text truncate text-sm font-black tracking-[0.18em] text-[#f4f1e8]/55">
+            {CLUB_NAME} {CLUB_SLOGAN}
+          </p>
         </div>
       </div>
 
@@ -278,8 +282,7 @@ function FramePreviewMockup() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/school-mark.png" alt="경남과학고등학교" className="h-20 w-20 rounded-full bg-[#f4f1e8] object-cover" />
         <div className="text-center">
-          <p className="text-lg font-black leading-tight text-[#f4f1e8]">경남과학고등학교</p>
-          <p className="mt-1 text-sm font-black tracking-[0.18em] text-[#f4f1e8]/62">FESTIVAL FRAME</p>
+          <p className="safe-text text-sm font-black leading-tight text-[#f4f1e8]">{EVENT_TITLE}</p>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/keuni-deuri-hands.png" alt="크니 드리" className="h-20 w-[110px] object-contain" />
@@ -943,17 +946,12 @@ export function BoothApp() {
 
               <div className="grid content-center gap-7">
                 <div className="grid gap-4">
-                  <p className="text-2xl font-black tracking-[0.26em] text-[#f4f1e8]/58">FESTIVAL PHOTO</p>
+                  <div className="grid gap-2">
+                    <p className="text-2xl font-black tracking-[0.2em] text-[#f4f1e8]/58">{CLUB_NAME}</p>
+                    <p className="safe-text text-2xl font-black text-[#f4f1e8]/68">{CLUB_SLOGAN}</p>
+                  </div>
                   <h1 className="safe-text text-[74px] font-black leading-[0.98]">네컷 촬영</h1>
                   <p className="safe-text max-w-[820px] text-3xl font-black leading-[1.25]">{EVENT_TITLE}</p>
-                </div>
-
-                <div className="grid grid-cols-5 gap-3 text-center">
-                  {["분석 1장", "태그 선택", "6장 촬영", "4장 선택", "메일 전송"].map((label) => (
-                    <div key={label} className="rounded-[4px] border-[2px] border-[#f4f1e8]/55 px-4 py-5 text-xl font-black">
-                      {label}
-                    </div>
-                  ))}
                 </div>
 
                 <KioskButton onClick={() => setStep("consent")} className="min-h-[128px] text-5xl">
