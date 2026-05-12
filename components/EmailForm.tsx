@@ -130,31 +130,31 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     }
   }
 
-  const keyClass = `flex items-center justify-center rounded-[6px] border-[3px] border-[#12325b] bg-white px-3 font-black text-[#12325b] active:translate-y-[2px] disabled:opacity-45 ${
+  const keyClass = `flex items-center justify-center rounded-[6px] border border-[var(--line)] bg-[var(--surface)] px-3 font-black text-[var(--text)] active:translate-y-[2px] disabled:opacity-45 ${
     isLandscape ? "min-h-[54px] text-xl" : "min-h-[74px] text-2xl"
   }`;
   const symbolKeys = inputMode === "domain" ? DOMAIN_SYMBOL_KEYS : LOCAL_SYMBOL_KEYS;
 
   return (
-    <div className={`grid text-[#12325b] ${isLandscape ? "min-h-0 gap-4" : "gap-6"}`}>
-      <div className="rounded-[8px] border-[3px] border-[#12325b] bg-white p-5">
+    <div className={`grid text-[var(--text)] ${isLandscape ? "min-h-0 gap-4" : "gap-6"}`}>
+      <div className="rounded-[8px] border border-[var(--line)] bg-[var(--surface)] p-5">
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-3">
           <button
             type="button"
             onClick={() => setInputMode("local")}
             className={`h-16 min-w-0 rounded-[6px] border-[3px] px-4 text-left text-3xl font-black ${
-              inputMode === "local" ? "border-[#12325b] bg-[#e9f0fb]" : "border-[#12325b]/25 bg-white"
+              inputMode === "local" ? "border-[var(--primary)] bg-[#f4f1e8]" : "border-[var(--line-soft)] bg-[var(--surface-2)]"
             }`}
           >
             <span
               className={`safe-text block truncate ${
-                inputMode === "local" ? (localPart ? "text-[#050505]" : "text-[#050505]/42") : "text-[#f4f1e8]"
+                inputMode === "local" ? (localPart ? "text-[#050505]" : "text-[#050505]/42") : "text-[var(--text-muted)]"
               }`}
             >
               {localPart || "아이디"}
             </span>
           </button>
-          <span className="text-4xl font-black">@</span>
+          <span className="text-4xl font-black text-[var(--primary)]">@</span>
           <button
             type="button"
             onClick={() => {
@@ -163,10 +163,10 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               }
             }}
             className={`h-16 min-w-0 rounded-[6px] border-[3px] px-4 text-left text-3xl font-black ${
-              inputMode === "domain" ? "border-[#12325b] bg-[#e9f0fb]" : "border-[#12325b]/25 bg-white"
+              inputMode === "domain" ? "border-[var(--primary)] bg-[#f4f1e8]" : "border-[var(--line-soft)] bg-[var(--surface-2)]"
             }`}
           >
-            <span className={`safe-text block truncate ${inputMode === "domain" ? "text-[#050505]" : "text-[#f4f1e8]"}`}>
+            <span className={`safe-text block truncate ${inputMode === "domain" ? "text-[#050505]" : "text-[var(--text)]"}`}>
               {domain || "도메인"}
             </span>
           </button>
@@ -174,14 +174,14 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
             type="button"
             onClick={clearAll}
             disabled={busy || (!localPart && !customDomain && domainMode === "preset")}
-            className="flex h-14 w-14 items-center justify-center rounded-[6px] border-[3px] border-[#12325b] bg-white disabled:opacity-35"
+            className="flex h-14 w-14 items-center justify-center rounded-[6px] border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] disabled:opacity-35"
             aria-label="입력 지우기"
           >
             <X className="h-7 w-7" />
           </button>
         </div>
         {email && !valid && (
-          <p className="mt-3 text-xl font-black text-[#b42318]">이메일 주소 형식을 확인해 주세요</p>
+          <p className="mt-3 text-xl font-black text-[var(--danger)]">이메일 주소 형식을 확인해 주세요</p>
         )}
       </div>
 
@@ -194,7 +194,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               type="button"
               onClick={() => chooseDomain(option)}
               className={`min-h-[58px] rounded-[6px] border-[3px] px-2 text-xl font-black active:translate-y-[2px] ${
-                active ? "border-[#12325b] bg-[#12325b] text-white" : "border-[#12325b] bg-white text-[#12325b]"
+                active ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]" : "border-[var(--line)] bg-transparent text-[var(--text)]"
               }`}
             >
               {option}
@@ -205,7 +205,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
           type="button"
           onClick={chooseCustomDomain}
           className={`min-h-[58px] rounded-[6px] border-[3px] px-2 text-xl font-black active:translate-y-[2px] ${
-            domainMode === "custom" ? "border-[#12325b] bg-[#12325b] text-white" : "border-[#12325b] bg-white text-[#12325b]"
+            domainMode === "custom" ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]" : "border-[var(--line)] bg-transparent text-[var(--text)]"
           }`}
         >
           직접 입력
@@ -213,7 +213,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
       </div>
 
       {domainMode === "custom" && (
-        <p className="rounded-[6px] border-[3px] border-[#12325b] bg-white px-5 py-3 text-center text-xl font-black">
+        <p className="rounded-[6px] border border-[var(--line)] bg-[var(--surface)] px-5 py-3 text-center text-xl font-black text-[var(--text-muted)]">
           도메인 직접 입력 중
         </p>
       )}
@@ -259,14 +259,14 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
       </div>
 
       {confirming && (
-        <div className="grid gap-4 rounded-[8px] border-[3px] border-[#12325b] bg-white p-5 text-center">
-          <p className="text-2xl font-black text-[#12325b]/60">이 주소로 보낼까요?</p>
-          <p className="safe-text break-all text-4xl font-black text-[#12325b]">{email}</p>
+        <div className="grid gap-4 rounded-[8px] border border-[var(--primary)] bg-[var(--surface)] p-5 text-center">
+          <p className="text-2xl font-black text-[var(--text-muted)]">이 주소로 보낼까요?</p>
+          <p className="safe-text break-all text-4xl font-black text-[var(--primary)]">{email}</p>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="min-h-[68px] rounded-[6px] border-[3px] border-[#12325b] bg-white text-2xl font-black text-[#12325b] active:translate-y-[2px]"
+              className="min-h-[68px] rounded-[6px] border border-[var(--line)] bg-transparent text-2xl font-black text-[var(--text)] active:translate-y-[2px]"
             >
               수정하기
             </button>
@@ -274,7 +274,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               type="button"
               onClick={() => void submit()}
               disabled={submitting}
-              className="min-h-[68px] rounded-[6px] border-[3px] border-[#12325b] bg-[#12325b] text-2xl font-black text-white active:translate-y-[2px] disabled:opacity-45"
+              className="min-h-[68px] rounded-[6px] border border-[var(--primary)] bg-[var(--primary)] text-2xl font-black text-[var(--primary-text)] active:translate-y-[2px] disabled:opacity-45"
             >
               전송하기
             </button>
@@ -287,7 +287,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
           type="button"
           onClick={() => void submit()}
           disabled={!valid || busy}
-          className={`flex items-center justify-center gap-4 rounded-[8px] border-[3px] border-[#12325b] bg-[#12325b] px-8 font-black text-white active:translate-y-[2px] disabled:cursor-not-allowed disabled:border-[#12325b]/30 disabled:bg-[#12325b]/16 disabled:text-[#12325b]/36 ${
+          className={`flex items-center justify-center gap-4 rounded-[8px] border border-[var(--primary)] bg-[var(--primary)] px-8 font-black text-[var(--primary-text)] active:translate-y-[2px] disabled:cursor-not-allowed disabled:border-[var(--line-soft)] disabled:bg-[var(--surface)] disabled:text-[var(--text-subtle)] ${
             isLandscape ? "min-h-[82px] text-3xl" : "min-h-[108px] text-4xl"
           }`}
         >
@@ -298,7 +298,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
           type="button"
           onClick={() => void skip()}
           disabled={busy}
-          className={`flex items-center justify-center gap-3 rounded-[8px] border-[3px] border-[#12325b] bg-white px-5 font-black text-[#12325b] active:translate-y-[2px] disabled:opacity-40 ${
+          className={`flex items-center justify-center gap-3 rounded-[8px] border border-[var(--line)] bg-transparent px-5 font-black text-[var(--text)] active:translate-y-[2px] disabled:opacity-40 ${
             isLandscape ? "min-h-[82px] text-2xl" : "min-h-[108px] text-3xl"
           }`}
         >

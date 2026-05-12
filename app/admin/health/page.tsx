@@ -208,14 +208,14 @@ function localConfigChecks(): HealthCheck[] {
 
 function HealthCard({ check }: { check: HealthCheck }) {
   return (
-    <article className="grid gap-4 rounded-[28px] border-2 border-white/10 bg-white/10 p-6 shadow-panel">
+    <article className="grid gap-3 rounded-[14px] border border-white/10 bg-white/[0.06] p-5">
       <div className="flex items-start justify-between gap-4">
-        <h2 className="safe-text text-4xl font-black">{check.label}</h2>
-        <span className={`rounded-[18px] px-5 py-3 text-xl font-black ${stateClass(check.state)}`}>
+        <h2 className="safe-text text-2xl font-black">{check.label}</h2>
+        <span className={`rounded-[10px] px-4 py-2 text-base font-black ${stateClass(check.state)}`}>
           {stateText(check.state)}
         </span>
       </div>
-      <p className="safe-text text-2xl font-bold leading-8 text-white/68">{check.detail}</p>
+      <p className="safe-text text-lg font-bold leading-7 text-white/62">{check.detail}</p>
     </article>
   );
 }
@@ -243,25 +243,31 @@ export default async function AdminHealthPage() {
     records.length > 0
       ? records.reduce((sum, record) => sum + record.aiCost.totalUsd, 0) / records.length
       : 0;
+  const criticalLabels = new Set(["OpenAI", "Brevo", "Temp 저장소", "디스크 여유 공간", "관리자 PIN", "CRON_SECRET"]);
+  const criticalChecks = checks.filter((check) => criticalLabels.has(check.label));
+  const recommendedChecks = checks.filter((check) => !criticalLabels.has(check.label));
+  const failCount = criticalChecks.filter((check) => check.state === "fail").length;
+  const warnCount = criticalChecks.filter((check) => check.state === "warn").length;
+  const summaryState: HealthState = failCount > 0 ? "fail" : warnCount > 0 ? "warn" : "ok";
 
   return (
-    <main className="min-h-screen bg-[#101722] p-8 text-white">
-      <div className="mx-auto grid max-w-[1400px] gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[32px] border-2 border-white/10 bg-white/10 p-6 shadow-panel">
+    <main className="min-h-screen bg-[#050505] p-6 text-white">
+      <div className="mx-auto grid max-w-[1500px] gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-white/10 bg-white/[0.06] p-5">
           <div className="grid gap-2">
-            <p className="text-xl font-black tracking-[0.22em] text-[#5eead4]">HEALTH</p>
-            <h1 className="safe-text text-5xl font-black">운영 전 점검</h1>
+            <p className="text-base font-black tracking-[0.22em] text-[#5eead4]">HEALTH</p>
+            <h1 className="safe-text text-4xl font-black">운영 전 점검</h1>
           </div>
           <div className="flex gap-3">
             <a
               href="/admin"
-              className="flex min-h-[72px] items-center justify-center rounded-[22px] bg-white px-7 text-2xl font-black text-[#101722]"
+              className="flex min-h-[58px] items-center justify-center rounded-[12px] bg-white px-6 text-xl font-black text-[#050505]"
             >
               관리자 홈
             </a>
             <a
               href="/"
-              className="flex min-h-[72px] items-center justify-center rounded-[22px] bg-[#5eead4] px-7 text-2xl font-black text-[#101722]"
+              className="flex min-h-[58px] items-center justify-center rounded-[12px] bg-[#5eead4] px-6 text-xl font-black text-[#050505]"
             >
               촬영 화면
             </a>
@@ -269,13 +275,37 @@ export default async function AdminHealthPage() {
           </div>
         </header>
 
-        <section className="grid gap-5 lg:grid-cols-2">
-          {checks.map((check) => (
-            <HealthCard key={check.label} check={check} />
-          ))}
+        <section className="grid gap-4 rounded-[16px] border border-white/10 bg-white/[0.06] p-5 lg:grid-cols-[320px_1fr]">
+          <div>
+            <p className="text-base font-black tracking-[0.2em] text-white/45">OVERALL</p>
+            <h2 className="mt-2 safe-text text-4xl font-black">
+              {summaryState === "ok" ? "운영 가능" : summaryState === "warn" ? "주의 필요" : "운영 전 조치 필요"}
+            </h2>
+          </div>
+          <p className="safe-text text-xl font-bold leading-8 text-white/62">
+            필수 항목 실패 {failCount}개, 확인 필요 {warnCount}개입니다. 실패 항목은 행사 시작 전에 조치하세요.
+          </p>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-3">
+        <section className="grid gap-3">
+          <h2 className="text-2xl font-black">필수 항목</h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+          {criticalChecks.map((check) => (
+            <HealthCard key={check.label} check={check} />
+          ))}
+          </div>
+        </section>
+
+        <section className="grid gap-3">
+          <h2 className="text-2xl font-black">권장 항목</h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+          {recommendedChecks.map((check) => (
+            <HealthCard key={check.label} check={check} />
+          ))}
+          </div>
+        </section>
+
+        <section className="grid gap-3 lg:grid-cols-3">
           <HealthCard
             check={{
               label: "오늘 생성 수",

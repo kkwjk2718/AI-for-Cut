@@ -37,10 +37,33 @@ function topKeywords(records: AdminPhotoRecord[]): Array<[string, number]> {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[28px] border-2 border-white/10 bg-white/10 p-6 text-white shadow-panel">
-      <p className="text-xl font-black text-white/58">{label}</p>
-      <p className="safe-text mt-3 text-4xl font-black">{value}</p>
+    <div className="rounded-[14px] border border-white/10 bg-white/[0.07] p-5 text-white">
+      <p className="text-base font-black text-white/50">{label}</p>
+      <p className="safe-text mt-2 text-3xl font-black">{value}</p>
     </div>
+  );
+}
+
+function KeywordBars({ items }: { items: Array<[string, number]> }) {
+  if (items.length === 0) {
+    return null;
+  }
+  const max = Math.max(...items.map(([, count]) => count));
+  return (
+    <section className="grid gap-3 rounded-[16px] border border-white/10 bg-white/[0.06] p-5">
+      <h2 className="safe-text text-2xl font-black">선택 키워드 TOP 10</h2>
+      <div className="grid gap-2">
+        {items.map(([keyword, count]) => (
+          <div key={keyword} className="grid grid-cols-[180px_1fr_56px] items-center gap-3 text-base font-black">
+            <span className="safe-text text-white/70">{keyword}</span>
+            <div className="h-3 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-[#5eead4]" style={{ width: `${Math.max(8, (count / max) * 100)}%` }} />
+            </div>
+            <span className="text-right text-[#5eead4]">{count.toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -50,27 +73,27 @@ function CostRows({ record }: { record: AdminPhotoRecord }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-[24px] bg-[#101722]/58 p-4">
-      <table className="w-full min-w-[760px] border-collapse text-left text-xl text-white">
+    <div className="overflow-x-auto rounded-[12px] bg-black/20 p-3">
+      <table className="w-full min-w-[720px] border-collapse text-left text-base text-white">
         <thead>
           <tr className="border-b-2 border-white/18 text-white/58">
-            <th className="py-3 pr-4">항목</th>
-            <th className="py-3 pr-4">모델</th>
-            <th className="py-3 pr-4">입력</th>
-            <th className="py-3 pr-4">캐시</th>
-            <th className="py-3 pr-4">출력</th>
-            <th className="py-3 text-right">비용</th>
+            <th className="py-2 pr-4">항목</th>
+            <th className="py-2 pr-4">모델</th>
+            <th className="py-2 pr-4">입력</th>
+            <th className="py-2 pr-4">캐시</th>
+            <th className="py-2 pr-4">출력</th>
+            <th className="py-2 text-right">비용</th>
           </tr>
         </thead>
         <tbody>
           {record.aiCost.lines.map((line) => (
             <tr key={line.id} className="border-b border-white/10">
-              <td className="py-3 pr-4 font-black">{line.label}</td>
-              <td className="py-3 pr-4 font-bold text-white/76">{line.model}</td>
-              <td className="py-3 pr-4">{line.inputTokens.toLocaleString()}</td>
-              <td className="py-3 pr-4">{line.cachedInputTokens.toLocaleString()}</td>
-              <td className="py-3 pr-4">{line.outputTokens.toLocaleString()}</td>
-              <td className="py-3 text-right font-black text-[#5eead4]">{money(line.costUsd)}</td>
+              <td className="py-2 pr-4 font-black">{line.label}</td>
+              <td className="py-2 pr-4 font-bold text-white/76">{line.model}</td>
+              <td className="py-2 pr-4">{line.inputTokens.toLocaleString()}</td>
+              <td className="py-2 pr-4">{line.cachedInputTokens.toLocaleString()}</td>
+              <td className="py-2 pr-4">{line.outputTokens.toLocaleString()}</td>
+              <td className="py-2 text-right font-black text-[#5eead4]">{money(line.costUsd)}</td>
             </tr>
           ))}
         </tbody>
@@ -92,23 +115,23 @@ export default async function AdminPage() {
   const keywordRanking = topKeywords(records);
 
   return (
-    <main className="min-h-screen bg-[#101722] p-8 text-white">
-      <div className="mx-auto grid max-w-[1500px] gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[32px] border-2 border-white/10 bg-white/10 p-6 shadow-panel">
+    <main className="min-h-screen bg-[#050505] p-6 text-white">
+      <div className="mx-auto grid max-w-[1600px] gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-white/10 bg-white/[0.06] p-5">
           <div className="grid gap-2">
-            <p className="text-xl font-black tracking-[0.22em] text-[#5eead4]">ADMIN</p>
-            <h1 className="safe-text text-5xl font-black">AI 네컷 관리자</h1>
+            <p className="text-base font-black tracking-[0.22em] text-[#5eead4]">ADMIN</p>
+            <h1 className="safe-text text-4xl font-black">AI 네컷 관리자</h1>
           </div>
           <div className="flex gap-3">
             <a
               href="/admin/health"
-              className="flex min-h-[72px] items-center justify-center rounded-[22px] bg-white px-7 text-2xl font-black text-[#101722]"
+              className="flex min-h-[58px] items-center justify-center rounded-[12px] bg-white px-6 text-xl font-black text-[#050505]"
             >
               운영 점검
             </a>
             <a
               href="/"
-              className="flex min-h-[72px] items-center justify-center rounded-[22px] bg-[#5eead4] px-7 text-2xl font-black text-[#101722]"
+              className="flex min-h-[58px] items-center justify-center rounded-[12px] bg-[#5eead4] px-6 text-xl font-black text-[#050505]"
             >
               촬영 화면
             </a>
@@ -116,45 +139,33 @@ export default async function AdminPage() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-4">
           <Stat label="완성된 네컷" value={`${records.length.toLocaleString()}장`} />
           <Stat label="AI 총비용" value={money(totalCost)} />
           <Stat label="네컷 1장 평균" value={money(avgCost)} />
           <Stat label="실제 메일 전송" value={`${sentCount.toLocaleString()}건`} />
         </section>
 
-        <section className="rounded-[28px] border-2 border-white/10 bg-white/8 p-6">
-          <p className="safe-text text-xl font-bold leading-8 text-white/68">
-            비용은 OpenAI usage token과 설정된 USD/1M token 단가로 계산한 AI 비용입니다.
-            카메라, Sharp 합성, Brevo 메일 비용은 포함하지 않습니다. 기본 관리자 기록에는 얼굴 이미지가 저장되지 않으며,
-            사진 아카이브가 켜져 있고 사용자가 선택 저장에 동의한 경우에만 완성 사진을 보관합니다. 현재 보관 이미지:
+        <section className="rounded-[14px] border border-white/10 bg-white/[0.04] p-4">
+          <p className="safe-text text-base font-bold leading-6 text-white/58">
+            AI 비용만 집계합니다. 카메라, Sharp 합성, Brevo 메일 비용은 제외됩니다. 기본 기록에는 얼굴 이미지를 저장하지 않으며,
+            사진 아카이브와 선택 저장 동의가 모두 있을 때만 완성 사진을 보관합니다. 현재 보관 이미지:
             {` ${archivedImageCount.toLocaleString()}장`}
           </p>
         </section>
 
-        {keywordRanking.length > 0 && (
-          <section className="grid gap-4 rounded-[28px] border-2 border-white/10 bg-white/8 p-6">
-            <h2 className="safe-text text-3xl font-black">선택 키워드 TOP 10</h2>
-            <div className="flex flex-wrap gap-3">
-              {keywordRanking.map(([keyword, count]) => (
-                <span key={keyword} className="rounded-full bg-white/12 px-5 py-3 text-xl font-black">
-                  {keyword} {count.toLocaleString()}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
+        <KeywordBars items={keywordRanking} />
 
-        <section className="grid gap-6">
+        <section className="grid gap-3">
           {records.length === 0 ? (
-            <div className="rounded-[32px] border-2 border-white/10 bg-white/10 p-12 text-center text-3xl font-black shadow-panel">
+            <div className="rounded-[16px] border border-white/10 bg-white/[0.06] p-10 text-center text-2xl font-black">
               아직 완성된 네컷 기록이 없습니다.
             </div>
           ) : (
             records.map((record) => (
               <article
                 key={record.id}
-                className="grid gap-6 rounded-[32px] border-2 border-white/10 bg-white/10 p-6 shadow-panel lg:grid-cols-[320px_1fr]"
+                className="grid gap-4 rounded-[16px] border border-white/10 bg-white/[0.06] p-4 lg:grid-cols-[190px_1fr]"
               >
                 <div className="grid gap-4">
                   {record.imageFile ? (
@@ -162,26 +173,26 @@ export default async function AdminPage() {
                     <img
                       src={`/api/admin/image/${record.id}`}
                       alt="완성된 네컷"
-                      className="w-full rounded-[24px] border-4 border-white bg-white object-contain"
+                      className="w-full rounded-[10px] border border-white/20 bg-white object-contain"
                     />
                   ) : (
-                    <div className="grid aspect-[2/3] place-items-center rounded-[24px] border-4 border-white/16 bg-[#101722]/72 p-6 text-center">
+                    <div className="grid aspect-[4/3] place-items-center rounded-[10px] border border-white/10 bg-black/24 p-4 text-center">
                       <div className="grid gap-3">
-                        <p className="text-3xl font-black text-white">사진 미저장</p>
-                        <p className="safe-text text-xl font-bold leading-7 text-white/58">
+                        <p className="text-xl font-black text-white">사진 미저장</p>
+                        <p className="safe-text text-sm font-bold leading-5 text-white/50">
                           선택 저장 동의가 없거나 사진 아카이브가 꺼져 있습니다.
                         </p>
                       </div>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-[22px] bg-[#101722]/58 p-4">
-                      <p className="text-lg font-bold text-white/58">네컷 1장</p>
-                      <p className="mt-2 text-3xl font-black text-[#5eead4]">{money(record.aiCost.totalUsd)}</p>
+                    <div className="rounded-[10px] bg-black/20 p-3">
+                      <p className="text-sm font-bold text-white/50">네컷 1장</p>
+                      <p className="mt-1 text-2xl font-black text-[#5eead4]">{money(record.aiCost.totalUsd)}</p>
                     </div>
-                    <div className="rounded-[22px] bg-[#101722]/58 p-4">
-                      <p className="text-lg font-bold text-white/58">컷당 환산</p>
-                      <p className="mt-2 text-3xl font-black text-[#5eead4]">{money(record.aiCost.totalUsd / 4)}</p>
+                    <div className="rounded-[10px] bg-black/20 p-3">
+                      <p className="text-sm font-bold text-white/50">컷당 환산</p>
+                      <p className="mt-1 text-2xl font-black text-[#5eead4]">{money(record.aiCost.totalUsd / 4)}</p>
                     </div>
                   </div>
                 </div>
@@ -189,21 +200,21 @@ export default async function AdminPage() {
                 <div className="grid content-start gap-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h2 className="safe-text text-4xl font-black">{dateTime(record.completedAt)}</h2>
-                      <p className="mt-2 text-xl font-bold text-white/58">
+                      <h2 className="safe-text text-2xl font-black">{dateTime(record.completedAt)}</h2>
+                      <p className="mt-1 text-base font-bold text-white/58">
                         {record.width}x{record.height} · {totalTokens(record.aiCost.lines).toLocaleString()} tokens
                       </p>
-                      <p className="mt-1 text-lg font-bold text-white/46">
+                      <p className="mt-1 text-sm font-bold text-white/46">
                         사진 저장: {record.imageFile ? "동의 및 보관" : "미보관"}
                       </p>
                     </div>
-                    <span className="rounded-[18px] bg-[#5eead4] px-5 py-3 text-xl font-black text-[#101722]">
+                    <span className="rounded-[10px] bg-[#5eead4] px-4 py-2 text-base font-black text-[#050505]">
                       {record.email ? (record.email.skipped ? "메일 건너뜀" : "메일 전송") : "미전송"}
                     </span>
                   </div>
 
                   {record.poseSummary && (
-                    <p className="safe-text rounded-[22px] bg-[#101722]/58 p-5 text-xl font-bold leading-8 text-white/76">
+                    <p className="safe-text rounded-[10px] bg-black/20 p-4 text-base font-bold leading-6 text-white/70">
                       {record.poseSummary}
                     </p>
                   )}
@@ -211,7 +222,7 @@ export default async function AdminPage() {
                   {record.selectedKeywords && (
                     <div className="flex flex-wrap gap-3">
                       {Object.entries(record.selectedKeywords).map(([category, keyword]) => (
-                        <span key={category} className="rounded-full bg-white/12 px-5 py-3 text-xl font-black">
+                        <span key={category} className="rounded-full bg-white/10 px-4 py-2 text-base font-black">
                           {category}: {keyword}
                         </span>
                       ))}

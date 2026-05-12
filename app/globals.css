@@ -5,6 +5,19 @@
 :root {
   color-scheme: light;
   background: #050505;
+  --bg: #050505;
+  --surface: #151515;
+  --surface-2: #22252b;
+  --text: #f4f1e8;
+  --text-muted: rgba(244, 241, 232, 0.62);
+  --text-subtle: rgba(244, 241, 232, 0.42);
+  --line-strong: rgba(244, 241, 232, 0.92);
+  --line: rgba(244, 241, 232, 0.32);
+  --line-soft: rgba(244, 241, 232, 0.14);
+  --primary: #5eead4;
+  --primary-text: #050505;
+  --warning: #ffd43b;
+  --danger: #ff5148;
 }
 
 * {
