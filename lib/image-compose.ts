@@ -1,18 +1,19 @@
 import path from "path";
 import sharp from "sharp";
 
-export const SHOT_WIDTH = 900;
-export const SHOT_HEIGHT = 1200;
+export const SHOT_WIDTH = 1200;
+export const SHOT_HEIGHT = 1600;
 
-const FINAL_WIDTH = 1200;
-const FINAL_HEIGHT = 1800;
-const PANEL_WIDTH = 492;
-const PANEL_HEIGHT = 656;
-const LEFT_X = 86;
-const RIGHT_X = 622;
-const TOP_Y = 86;
-const BOTTOM_Y = 794;
-const FRAME_RADIUS = 4;
+const SCALE = 2;
+const FINAL_WIDTH = 1200 * SCALE;
+const FINAL_HEIGHT = 1800 * SCALE;
+const PANEL_WIDTH = 492 * SCALE;
+const PANEL_HEIGHT = 656 * SCALE;
+const LEFT_X = 86 * SCALE;
+const RIGHT_X = 622 * SCALE;
+const TOP_Y = 86 * SCALE;
+const BOTTOM_Y = 794 * SCALE;
+const FRAME_RADIUS = 4 * SCALE;
 const EVENT_TITLE_LINE_1 = "2026. 진주시와 함께하는 경남과학고등학교";
 const EVENT_TITLE_LINE_2 = "수학, 과학, 정보 페스티벌";
 
@@ -99,8 +100,8 @@ async function makePanel(background: Buffer, foreground: Buffer): Promise<Buffer
 
 async function panelBorder(): Promise<Buffer> {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PANEL_WIDTH}" height="${PANEL_HEIGHT}">
-    <rect x="0" y="0" width="${PANEL_WIDTH}" height="${PANEL_HEIGHT}" rx="${FRAME_RADIUS}" fill="none" stroke="#f8fafc" stroke-width="6"/>
-    <rect x="4" y="4" width="${PANEL_WIDTH - 8}" height="${PANEL_HEIGHT - 8}" rx="${FRAME_RADIUS}" fill="none" stroke="#111827" stroke-width="2" opacity="0.55"/>
+    <rect x="0" y="0" width="${PANEL_WIDTH}" height="${PANEL_HEIGHT}" rx="${FRAME_RADIUS}" fill="none" stroke="#f8fafc" stroke-width="${6 * SCALE}"/>
+    <rect x="${4 * SCALE}" y="${4 * SCALE}" width="${PANEL_WIDTH - 8 * SCALE}" height="${PANEL_HEIGHT - 8 * SCALE}" rx="${FRAME_RADIUS}" fill="none" stroke="#111827" stroke-width="${2 * SCALE}" opacity="0.55"/>
   </svg>`;
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
@@ -108,8 +109,8 @@ async function panelBorder(): Promise<Buffer> {
 async function frameDecoration(): Promise<Buffer> {
   const baseSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${FINAL_WIDTH}" height="${FINAL_HEIGHT}">
     <rect width="${FINAL_WIDTH}" height="${FINAL_HEIGHT}" fill="#050505"/>
-    <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 112}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="31" font-weight="900" fill="#ffffff">${EVENT_TITLE_LINE_1}</text>
-    <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 68}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="31" font-weight="900" fill="#ffffff">${EVENT_TITLE_LINE_2}</text>
+    <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 224}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="62" font-weight="900" fill="#ffffff">${EVENT_TITLE_LINE_1}</text>
+    <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 136}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="62" font-weight="900" fill="#ffffff">${EVENT_TITLE_LINE_2}</text>
   </svg>`;
 
   const schoolMark = await makeSchoolMark();
@@ -117,8 +118,8 @@ async function frameDecoration(): Promise<Buffer> {
 
   return sharp(Buffer.from(baseSvg))
     .composite([
-      { input: schoolMark, left: 72, top: FINAL_HEIGHT - 178 },
-      { input: characters, left: FINAL_WIDTH - 292, top: FINAL_HEIGHT - 174 },
+      { input: schoolMark, left: 72 * SCALE, top: FINAL_HEIGHT - 178 * SCALE },
+      { input: characters, left: FINAL_WIDTH - 292 * SCALE, top: FINAL_HEIGHT - 174 * SCALE },
     ])
     .png()
     .toBuffer();
@@ -127,14 +128,14 @@ async function frameDecoration(): Promise<Buffer> {
 async function makeSchoolMark(): Promise<Buffer> {
   try {
     return await sharp(brandAsset("school-mark.png"))
-      .resize(148, 148, { fit: "cover", position: "center" })
-      .composite([{ input: await roundedMask(148, 148, 74), blend: "dest-in" }])
+      .resize(296, 296, { fit: "cover", position: "center" })
+      .composite([{ input: await roundedMask(296, 296, 148), blend: "dest-in" }])
       .png()
       .toBuffer();
   } catch {
-    const fallback = `<svg xmlns="http://www.w3.org/2000/svg" width="148" height="148">
-      <circle cx="74" cy="74" r="74" fill="#f8fafc"/>
-      <text x="74" y="84" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="900" fill="#050505">GSHS</text>
+    const fallback = `<svg xmlns="http://www.w3.org/2000/svg" width="296" height="296">
+      <circle cx="148" cy="148" r="148" fill="#f8fafc"/>
+      <text x="148" y="168" text-anchor="middle" font-family="Arial, sans-serif" font-size="68" font-weight="900" fill="#050505">GSHS</text>
     </svg>`;
     return sharp(Buffer.from(fallback)).png().toBuffer();
   }
@@ -143,13 +144,13 @@ async function makeSchoolMark(): Promise<Buffer> {
 async function makeCharacterMark(): Promise<Buffer> {
   try {
     return await sharp(brandAsset("keuni-deuri-hands.png"))
-      .resize({ width: 220, height: 144, fit: "inside", withoutEnlargement: true })
+      .resize({ width: 440, height: 288, fit: "inside", withoutEnlargement: true })
       .png()
       .toBuffer();
   } catch {
-    const fallback = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="144">
-      <rect width="220" height="144" rx="20" fill="#f8fafc"/>
-      <text x="110" y="84" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="#050505">K-D</text>
+    const fallback = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="288">
+      <rect width="440" height="288" rx="40" fill="#f8fafc"/>
+      <text x="220" y="168" text-anchor="middle" font-family="Arial, sans-serif" font-size="76" font-weight="900" fill="#050505">K-D</text>
     </svg>`;
     return sharp(Buffer.from(fallback)).png().toBuffer();
   }

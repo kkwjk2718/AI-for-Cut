@@ -52,12 +52,12 @@ export async function POST(request: Request) {
     }
 
     const image = await sharp(await readSessionFile(sessionId, session.files.final))
-      .jpeg({ quality: 90, mozjpeg: true })
+      .jpeg({ quality: 97, chromaSubsampling: "4:4:4", mozjpeg: true })
       .toBuffer();
     const result = await sendPhotoEmail({
       to: body.email,
       image,
-      fileName: "gshs-ai-4cut.jpg",
+      fileName: "gshs-ai-4cut-hq.jpg",
     });
 
     await updateSession(sessionId, (draft) => {

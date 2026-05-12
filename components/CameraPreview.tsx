@@ -93,8 +93,8 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
         }
 
         const canvas = document.createElement("canvas");
-        canvas.width = 900;
-        canvas.height = 1200;
+        canvas.width = 1200;
+        canvas.height = 1600;
         const context = canvas.getContext("2d");
         if (!context) {
           throw new Error("캔버스를 사용할 수 없습니다");

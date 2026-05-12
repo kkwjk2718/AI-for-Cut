@@ -84,7 +84,7 @@ npm run cleanup-temp
 - 세션 상태 업데이트는 세션별 lock으로 순차 처리합니다.
 - 인물 분리용 MediaPipe 런타임 파일은 `public/vendor/mediapipe/selfie_segmentation`에서 로컬로 제공합니다.
 - 인물 분리에 실패하거나 alpha가 없는 사진 업로드가 들어오면 합성을 진행하지 않고 재촬영을 요구합니다.
-- 이메일 첨부는 `gshs-ai-4cut.jpg` JPEG quality 90으로 전송합니다.
+- 이메일 첨부는 `gshs-ai-4cut-hq.jpg` JPEG quality 97, 4:4:4 색상 샘플링으로 전송합니다.
 - 운영 이벤트와 에러는 `EVENT_LOG_DIR`에 JSONL로 남기며, 이메일과 원본 사진은 로그에 저장하지 않습니다.
 - Linux/Docker 운영 시 최종 프레임의 한글 렌더링과 폰트 설치를 별도로 확인하세요.
 - 외부 손님 운영 시 만 14세 미만 참가자는 보호자 또는 인솔자 동의가 필요합니다.
