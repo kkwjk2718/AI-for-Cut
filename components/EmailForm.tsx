@@ -17,7 +17,7 @@ const LETTER_ROWS = [
 
 const NUMBER_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const SYMBOL_KEYS = ["@", ".", "_", "-"];
-const QUICK_KEYS = ["@gmail.com", "@naver.com", "@kakao.com", ".com", ".kr"];
+const QUICK_KEYS = ["@gmail.com", "@naver.com", "@kakao.com", "@daum.net", ".com", ".kr"];
 
 function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
@@ -150,7 +150,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit }: EmailForm
           </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-6 gap-2">
           {QUICK_KEYS.map((key) => (
             <button
               key={key}
