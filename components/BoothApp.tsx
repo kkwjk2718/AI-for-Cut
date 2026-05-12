@@ -834,7 +834,7 @@ export function BoothApp() {
         if (!raw) {
           throw new Error("선택한 사진을 찾지 못했습니다");
         }
-        setUploadStatus(`${order + 1}/4 배경 분리 중`);
+        setUploadStatus(`${order + 1}/4 크로마키 누끼 처리 중`);
         const segmented = await removeBackgroundDataUrl(raw);
         setUploadStatus(`${order + 1}/4 저장 중`);
         await postJson<{ uploaded: boolean; completedShots: number }>("/api/upload-shot", {

@@ -82,7 +82,8 @@ npm run cleanup-temp
 - 업로드 이미지는 최대 8MB, 최대 20MP로 제한합니다.
 - 주요 API에는 IP 기반 메모리 rate limit을 적용합니다.
 - 세션 상태 업데이트는 세션별 lock으로 순차 처리합니다.
-- 인물 분리용 MediaPipe 런타임 파일은 `public/vendor/mediapipe/selfie_segmentation`에서 로컬로 제공합니다.
+- 초록 크로마키 배경을 우선 제거하고, 크로마키가 충분히 감지되지 않을 때만 MediaPipe 인물 분리로 fallback합니다.
+- MediaPipe 런타임 파일은 `public/vendor/mediapipe/selfie_segmentation`에서 로컬로 제공합니다.
 - 인물 분리에 실패하거나 alpha가 없는 사진 업로드가 들어오면 합성을 진행하지 않고 재촬영을 요구합니다.
 - 이메일 첨부는 `gshs-ai-4cut-hq.jpg` JPEG quality 97, 4:4:4 색상 샘플링으로 전송합니다.
 - 운영 이벤트와 에러는 `EVENT_LOG_DIR`에 JSONL로 남기며, 이메일과 원본 사진은 로그에 저장하지 않습니다.
