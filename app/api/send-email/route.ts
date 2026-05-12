@@ -19,15 +19,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as { sessionId?: string; email?: string };
+    const body = (await request.json()) as { sessionId?: string; email?: string; skip?: boolean };
     const sessionId = assertSessionId(body.sessionId);
     const session = await readSession(sessionId);
-    if (!isEmail(body.email)) {
-      throw new Error("이메일 주소를 확인해 주세요.");
-    }
 
     if (!session.files.final) {
       throw new Error("완성된 이미지가 없습니다.");
+    }
+
+    if (body.skip === true) {
+      await updateSession(sessionId, (draft) => {
+        draft.state = "emailed";
+        draft.emailSentAt = new Date().toISOString();
+      });
+      await markAdminEmailSent(sessionId, {
+        skipped: true,
+        hasMessageId: false,
+      });
+      await deleteSession(sessionId);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          sent: false,
+          skipped: true,
+        },
+      });
+    }
+
+    if (!isEmail(body.email)) {
+      throw new Error("이메일 주소를 확인해 주세요.");
     }
 
     const image = await sharp(await readSessionFile(sessionId, session.files.final))

@@ -23,6 +23,7 @@ import type { ApiResponse, KeywordCategory, PoseAnalysis, SelectedKeywords } fro
 type Step =
   | "idle"
   | "consent"
+  | "analysis_help"
   | "analysis_capture"
   | "background_loading"
   | "capture"
@@ -36,6 +37,7 @@ type Step =
   | "complete";
 
 type BackgroundStatus = "idle" | "generating" | "ready" | "error";
+type BeautyPreviewStatus = "idle" | "processing" | "ready" | "error";
 
 const CATEGORIES: KeywordCategory[] = ["theme", "mood", "color", "effect"];
 const CATEGORY_LABELS: Record<KeywordCategory, string> = {
@@ -53,11 +55,13 @@ const BACKGROUND_STAGES = [
   "사진 합성 준비",
 ];
 const FINAL_CAPTURE_COUNT = 6;
+const PREP_COUNTDOWN_VALUES = [5, 4, 3, 2, 1];
 const COUNTDOWN_VALUES = [3, 2, 1];
 
 const STEP_STAGE: Record<Step, number> = {
   idle: 0,
   consent: 0,
+  analysis_help: 1,
   analysis_capture: 1,
   capture: 3,
   analysis_loading: 2,
@@ -409,31 +413,42 @@ export function BoothApp() {
   const cameraRef = useRef<CameraPreviewHandle | null>(null);
   const captureStartedRef = useRef(false);
   const flowRunRef = useRef(0);
+  const beautyRunRef = useRef(0);
   const [step, setStep] = useState<Step>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
+  const [analysisHelpSeconds, setAnalysisHelpSeconds] = useState(10);
   const [analysisPhoto, setAnalysisPhoto] = useState<string | null>(null);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [beautifiedPhotos, setBeautifiedPhotos] = useState<string[]>([]);
+  const [beautyPreviewStatus, setBeautyPreviewStatus] = useState<BeautyPreviewStatus>("idle");
+  const [beautyPreviewError, setBeautyPreviewError] = useState<string | null>(null);
   const [shotIndex, setShotIndex] = useState(1);
   const [shotStatus, setShotStatus] = useState("카메라를 준비하고 있습니다");
   const [analysis, setAnalysis] = useState<PoseAnalysis | null>(null);
   const [tagSelection, setTagSelection] = useState<SelectedKeywords | null>(null);
   const [selectedPhotoIndices, setSelectedPhotoIndices] = useState<number[]>([]);
   const [beautyStrength, setBeautyStrength] = useState<BeautyStrength>(2);
+  const [requiredConsentAccepted, setRequiredConsentAccepted] = useState(false);
   const [archiveImageConsent, setArchiveImageConsent] = useState(false);
   const [backgroundStatus, setBackgroundStatus] = useState<BackgroundStatus>("idle");
   const [backgroundProgress, setBackgroundProgress] = useState(0);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
+  const [pendingUploadAfterBackground, setPendingUploadAfterBackground] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [finalUrl, setFinalUrl] = useState<string | null>(null);
   const [completeSeconds, setCompleteSeconds] = useState(10);
+  const [completeTitle, setCompleteTitle] = useState("전송 완료");
   const [error, setError] = useState<string | null>(null);
 
   const activeRun = useCallback(() => flowRunRef.current, []);
   const onReadyChange = useCallback((ready: boolean) => setCameraReady(ready), []);
   const cameraActive = step === "analysis_capture" || step === "capture";
   const selectedReady = selectedPhotoIndices.length === 4;
+  const previewPhotos = beautifiedPhotos.length === capturedPhotos.length ? beautifiedPhotos : capturedPhotos;
+  const beautyPreviewProcessing = beautyPreviewStatus === "processing";
 
   function requireSession(): string {
     if (!sessionId) {
@@ -442,41 +457,54 @@ export function BoothApp() {
     return sessionId;
   }
 
-  async function runCountdown(runId: number): Promise<void> {
-    for (const value of COUNTDOWN_VALUES) {
+  async function runCountdown(runId: number, values: number[], label: string): Promise<void> {
+    for (const value of values) {
       if (flowRunRef.current !== runId) {
         return;
       }
+      setCountdownLabel(label);
       setCountdown(value);
       await sleep(1000);
     }
     setCountdown(null);
+    setCountdownLabel(null);
   }
 
   async function start() {
     try {
+      if (!requiredConsentAccepted) {
+        throw new Error("필수 개인정보 수집 및 이용 동의가 필요합니다");
+      }
       flowRunRef.current += 1;
       captureStartedRef.current = false;
       setError(null);
       setFinalUrl(null);
       setAnalysisPhoto(null);
       setCapturedPhotos([]);
+      setBeautifiedPhotos([]);
+      setBeautyPreviewStatus("idle");
+      setBeautyPreviewError(null);
       setSelectedPhotoIndices([]);
       setAnalysis(null);
       setTagSelection(null);
       setBackgroundStatus("idle");
       setBackgroundProgress(0);
       setBackgroundError(null);
+      setPendingUploadAfterBackground(false);
       setUploadStatus("");
       setShotIndex(1);
       setShotStatus("카메라를 준비하고 있습니다");
       setCameraReady(false);
+      setCompleteTitle("전송 완료");
+      setCountdown(null);
+      setCountdownLabel(null);
+      setAnalysisHelpSeconds(10);
       const data = await postJson<{ sessionId: string; expiresAt: string }>("/api/session/start", {
         privacyConsentAccepted: true,
         archiveImageConsent,
       });
       setSessionId(data.sessionId);
-      setStep("analysis_capture");
+      setStep("analysis_help");
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "세션을 시작하지 못했습니다");
     }
@@ -487,21 +515,29 @@ export function BoothApp() {
     flowRunRef.current += 1;
     captureStartedRef.current = false;
     setCountdown(null);
+    setCountdownLabel(null);
     setStep("idle");
     setSessionId(null);
     setCameraReady(false);
     setAnalysisPhoto(null);
     setCapturedPhotos([]);
+    setBeautifiedPhotos([]);
+    setBeautyPreviewStatus("idle");
+    setBeautyPreviewError(null);
     setSelectedPhotoIndices([]);
     setAnalysis(null);
     setTagSelection(null);
+    setRequiredConsentAccepted(false);
     setArchiveImageConsent(false);
     setBackgroundStatus("idle");
     setBackgroundProgress(0);
     setBackgroundError(null);
+    setPendingUploadAfterBackground(false);
     setUploadStatus("");
     setFinalUrl(null);
     setCompleteSeconds(10);
+    setCompleteTitle("전송 완료");
+    setAnalysisHelpSeconds(10);
     setError(null);
     if (id) {
       await fetch("/api/session/reset", {
@@ -511,6 +547,33 @@ export function BoothApp() {
       }).catch(() => undefined);
     }
   }
+
+  const beginAnalysisCapture = useCallback(() => {
+    captureStartedRef.current = false;
+    setCountdown(null);
+    setCountdownLabel(null);
+    setShotIndex(1);
+    setShotStatus("AI가 포즈를 분석할 사진을 준비해 주세요");
+    setCameraReady(false);
+    setStep("analysis_capture");
+  }, []);
+
+  useEffect(() => {
+    if (step !== "analysis_help") {
+      return;
+    }
+    setAnalysisHelpSeconds(10);
+    const interval = window.setInterval(() => {
+      setAnalysisHelpSeconds((value) => Math.max(value - 1, 0));
+    }, 1000);
+    const timeout = window.setTimeout(() => {
+      beginAnalysisCapture();
+    }, 10000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [step, beginAnalysisCapture]);
 
   const analyzeFirstPhoto = useCallback(
     async (firstPhoto: string, runId: number) => {
@@ -528,6 +591,7 @@ export function BoothApp() {
         setStep("tag_select");
       } catch (analysisError) {
         setCountdown(null);
+        setCountdownLabel(null);
         setError(analysisError instanceof Error ? analysisError.message : "태그 분석에 실패했습니다");
       }
     },
@@ -539,9 +603,13 @@ export function BoothApp() {
     try {
       setError(null);
       setShotIndex(1);
-      setShotStatus("AI가 포즈를 분석할 사진을 준비해 주세요");
-      await sleep(500);
-      await runCountdown(runId);
+      setShotStatus("분석용 사진을 위한 포즈를 준비해 주세요");
+      await runCountdown(runId, PREP_COUNTDOWN_VALUES, "준비 시간");
+      if (flowRunRef.current !== runId) {
+        return;
+      }
+      setShotStatus("분석용 사진을 촬영합니다");
+      await runCountdown(runId, COUNTDOWN_VALUES, "촬영");
       if (flowRunRef.current !== runId) {
         return;
       }
@@ -554,6 +622,7 @@ export function BoothApp() {
       await analyzeFirstPhoto(captured, runId);
     } catch (captureError) {
       setCountdown(null);
+      setCountdownLabel(null);
       setError(captureError instanceof Error ? captureError.message : "분석용 사진 촬영에 실패했습니다");
     }
   }, [activeRun, analyzeFirstPhoto]);
@@ -564,15 +633,22 @@ export function BoothApp() {
     try {
       setError(null);
       setCapturedPhotos([]);
+      setBeautifiedPhotos([]);
+      setBeautyPreviewStatus("idle");
+      setBeautyPreviewError(null);
       setSelectedPhotoIndices([]);
       for (let index = 1; index <= FINAL_CAPTURE_COUNT; index += 1) {
         if (flowRunRef.current !== runId) {
           return;
         }
         setShotIndex(index);
-        setShotStatus(`${index}번째 최종 사진을 준비해 주세요`);
-        await sleep(index === 1 ? 500 : 900);
-        await runCountdown(runId);
+        setShotStatus(`${index}번째 사진을 위한 포즈를 준비해 주세요`);
+        await runCountdown(runId, PREP_COUNTDOWN_VALUES, index === 1 ? "준비 시간" : "포즈 변경");
+        if (flowRunRef.current !== runId) {
+          return;
+        }
+        setShotStatus(`${index}번째 사진을 촬영합니다`);
+        await runCountdown(runId, COUNTDOWN_VALUES, "촬영");
         if (flowRunRef.current !== runId) {
           return;
         }
@@ -589,6 +665,7 @@ export function BoothApp() {
       }
     } catch (captureError) {
       setCountdown(null);
+      setCountdownLabel(null);
       setError(captureError instanceof Error ? captureError.message : "최종 사진 촬영에 실패했습니다");
     }
   }, [activeRun]);
@@ -605,6 +682,38 @@ export function BoothApp() {
     void captureFinalPhotos();
   }, [step, cameraReady, captureAnalysisPhoto, captureFinalPhotos]);
 
+  useEffect(() => {
+    if (capturedPhotos.length !== FINAL_CAPTURE_COUNT) {
+      beautyRunRef.current += 1;
+      setBeautifiedPhotos([]);
+      setBeautyPreviewStatus("idle");
+      setBeautyPreviewError(null);
+      return;
+    }
+
+    const runId = beautyRunRef.current + 1;
+    beautyRunRef.current = runId;
+    setBeautyPreviewStatus("processing");
+    setBeautyPreviewError(null);
+
+    Promise.all(capturedPhotos.map((photo) => applyBeautyFilter(photo, beautyStrength)))
+      .then((processed) => {
+        if (beautyRunRef.current !== runId) {
+          return;
+        }
+        setBeautifiedPhotos(processed);
+        setBeautyPreviewStatus("ready");
+      })
+      .catch(() => {
+        if (beautyRunRef.current !== runId) {
+          return;
+        }
+        setBeautifiedPhotos(capturedPhotos);
+        setBeautyPreviewStatus("error");
+        setBeautyPreviewError("보정 미리보기 적용에 실패했습니다. 원본으로 진행됩니다.");
+      });
+  }, [capturedPhotos, beautyStrength]);
+
   const startBackgroundGeneration = useCallback(
     async (selectedKeywords: SelectedKeywords): Promise<boolean> => {
       const runId = activeRun();
@@ -618,7 +727,7 @@ export function BoothApp() {
             sessionId: requireSession(),
             selectedKeywords,
           },
-          80_000,
+          190_000,
         );
         if (flowRunRef.current !== runId) {
           return false;
@@ -655,8 +764,12 @@ export function BoothApp() {
       return;
     }
     setSelectedPhotoIndices([]);
+    setPendingUploadAfterBackground(false);
     captureStartedRef.current = false;
     setCapturedPhotos([]);
+    setBeautifiedPhotos([]);
+    setBeautyPreviewStatus("idle");
+    setBeautyPreviewError(null);
     setShotIndex(1);
     setShotStatus("최종 촬영을 준비하고 있습니다");
     setCameraReady(false);
@@ -669,6 +782,11 @@ export function BoothApp() {
       return;
     }
     void startBackgroundGeneration(tagSelection);
+  }
+
+  function editTagsFromBackground() {
+    setPendingUploadAfterBackground(false);
+    setStep("tag_select");
   }
 
   function togglePhoto(index: number) {
@@ -697,20 +815,27 @@ export function BoothApp() {
       if (!selectedReady) {
         throw new Error("최종 사진 4장을 선택해 주세요");
       }
-      if (backgroundStatus !== "ready") {
-        throw new Error("배경 이미지가 아직 준비되지 않았습니다");
+      if (beautyPreviewProcessing) {
+        throw new Error("보정 미리보기가 끝난 뒤 다시 눌러 주세요");
       }
+      if (backgroundStatus !== "ready") {
+        if (backgroundStatus === "error") {
+          throw new Error("배경 생성에 실패했습니다. 다시 생성하거나 태그를 수정해 주세요.");
+        }
+        setPendingUploadAfterBackground(true);
+        setStep("background_loading");
+        return;
+      }
+      setPendingUploadAfterBackground(false);
       setStep("uploading");
       for (let order = 0; order < selectedPhotoIndices.length; order += 1) {
         const sourceIndex = selectedPhotoIndices[order];
-        const raw = capturedPhotos[sourceIndex];
+        const raw = previewPhotos[sourceIndex] ?? capturedPhotos[sourceIndex];
         if (!raw) {
           throw new Error("선택한 사진을 찾지 못했습니다");
         }
-        setUploadStatus(`${order + 1}/4 사진 보정 중`);
-        const beautified = await applyBeautyFilter(raw, beautyStrength);
         setUploadStatus(`${order + 1}/4 배경 분리 중`);
-        const segmented = await removeBackgroundDataUrl(beautified);
+        const segmented = await removeBackgroundDataUrl(raw);
         setUploadStatus(`${order + 1}/4 저장 중`);
         await postJson<{ uploaded: boolean; completedShots: number }>("/api/upload-shot", {
           sessionId: requireSession(),
@@ -724,6 +849,13 @@ export function BoothApp() {
     }
   }
 
+  useEffect(() => {
+    if (!pendingUploadAfterBackground || backgroundStatus !== "ready") {
+      return;
+    }
+    void uploadSelectedPhotos();
+  }, [pendingUploadAfterBackground, backgroundStatus]);
+
   async function sendEmail(email: string) {
     try {
       setError(null);
@@ -733,10 +865,28 @@ export function BoothApp() {
       });
       setSessionId(null);
       setCompleteSeconds(10);
+      setCompleteTitle("전송 완료");
       setStep("complete");
     } catch (emailError) {
       const message = emailError instanceof Error ? emailError.message : "메일 전송에 실패했습니다";
       setError(`${message} 운영요원에게 화면을 보여주세요. 이메일을 수정한 뒤 다시 전송할 수 있습니다.`);
+    }
+  }
+
+  async function skipEmail() {
+    try {
+      setError(null);
+      await postJson<{ sent: boolean; skipped: boolean; messageId?: string }>("/api/send-email", {
+        sessionId: requireSession(),
+        skip: true,
+      });
+      setSessionId(null);
+      setCompleteSeconds(10);
+      setCompleteTitle("완료");
+      setStep("complete");
+    } catch (skipError) {
+      const message = skipError instanceof Error ? skipError.message : "메일 건너뛰기에 실패했습니다";
+      setError(`${message} 운영요원에게 화면을 보여주세요.`);
     }
   }
 
@@ -772,7 +922,7 @@ export function BoothApp() {
 
   return (
     <main className="kiosk-root">
-      <Countdown value={countdown} />
+      <Countdown value={countdown} label={countdownLabel} />
       <div className="photoism-theme kiosk-screen bg-[#050505] text-[#f4f1e8]">
         <KioskHeader step={step} onRestart={() => void restart()} />
 
@@ -805,7 +955,7 @@ export function BoothApp() {
                 </div>
 
                 <KioskButton onClick={() => setStep("consent")} className="min-h-[128px] text-5xl">
-                  동의 화면으로
+                  시작하기
                 </KioskButton>
                 <p className="safe-text text-center text-xl font-bold text-[#f4f1e8]/58">
                   다음 화면에서 개인정보 수집 및 이용 내용을 확인한 뒤 촬영을 시작합니다.
@@ -815,8 +965,7 @@ export function BoothApp() {
           )}
 
           {!error && step === "consent" && (
-            <div className="grid min-h-0 grid-cols-[1fr_560px] gap-10">
-              <div className="grid content-center gap-7">
+            <div className="mx-auto grid h-full w-full max-w-[1420px] content-center gap-5">
                 <StepTitle
                   eyebrow="00 개인정보 동의"
                   title="촬영 전 동의가 필요합니다"
@@ -824,7 +973,7 @@ export function BoothApp() {
                   compact
                 />
 
-                <div className="grid gap-4 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#0b0b0b] p-7">
+                <div className="grid grid-cols-2 gap-3 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#0b0b0b] p-5">
                   {[
                     ["수집 항목", "촬영 사진, 생성 결과 이미지, 이메일 주소"],
                     ["이용 목적", "AI 네컷사진 생성 및 이메일 발송"],
@@ -833,19 +982,44 @@ export function BoothApp() {
                     ["동의 거부 시", "이메일 발송형 촬영 서비스 이용 불가"],
                     ["만 14세 미만", "보호자 또는 인솔자 동의 필요"],
                   ].map(([label, value]) => (
-                    <div key={label} className="grid grid-cols-[220px_1fr] gap-5 border-b-2 border-[#f4f1e8]/18 pb-4 last:border-b-0 last:pb-0">
-                      <p className="text-2xl font-black text-[#f4f1e8]/58">{label}</p>
-                      <p className="safe-text text-3xl font-black leading-tight text-[#f4f1e8]">{value}</p>
+                    <div key={label} className="grid gap-1 rounded-[4px] border-2 border-[#f4f1e8]/18 px-4 py-3">
+                      <p className="text-lg font-black text-[#f4f1e8]/58">{label}</p>
+                      <p className="safe-text text-2xl font-black leading-tight text-[#f4f1e8]">{value}</p>
                     </div>
                   ))}
                 </div>
-              </div>
 
-              <div className="grid content-center gap-6">
+                <button
+                  type="button"
+                  onClick={() => setRequiredConsentAccepted((value) => !value)}
+                  className={`grid gap-4 rounded-[4px] border-[3px] p-5 text-left active:translate-y-[2px] ${
+                    requiredConsentAccepted
+                      ? "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
+                      : "border-[#f4f1e8]/72 bg-[#0b0b0b] text-[#f4f1e8]"
+                  }`}
+                >
+                  <div className="flex items-start gap-5">
+                    <span
+                      className={`mt-1 grid h-14 w-14 shrink-0 place-items-center rounded-[4px] border-[3px] ${
+                        requiredConsentAccepted ? "border-[#050505] bg-[#050505] text-[#f4f1e8]" : "border-[#f4f1e8] bg-transparent"
+                      }`}
+                    >
+                      {requiredConsentAccepted && <Check className="h-9 w-9" />}
+                    </span>
+                    <div className="grid gap-2">
+                      <p className="text-2xl font-black tracking-[0.16em] opacity-70">필수</p>
+                      <h3 className="safe-text text-3xl font-black leading-tight">개인정보 수집 및 이용에 동의합니다.</h3>
+                    </div>
+                  </div>
+                  <p className={`safe-text text-xl font-bold leading-7 ${requiredConsentAccepted ? "text-[#050505]/68" : "text-[#f4f1e8]/58"}`}>
+                    동의해야 AI 네컷사진 생성 및 이메일 발송 서비스를 이용할 수 있습니다.
+                  </p>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setArchiveImageConsent((value) => !value)}
-                  className={`grid gap-5 rounded-[4px] border-[3px] p-7 text-left active:translate-y-[2px] ${
+                  className={`grid gap-4 rounded-[4px] border-[3px] p-5 text-left active:translate-y-[2px] ${
                     archiveImageConsent
                       ? "border-[#f4f1e8] bg-[#f4f1e8] text-[#050505]"
                       : "border-[#f4f1e8]/72 bg-[#0b0b0b] text-[#f4f1e8]"
@@ -861,7 +1035,7 @@ export function BoothApp() {
                     </span>
                     <div className="grid gap-2">
                       <p className="text-2xl font-black tracking-[0.16em] opacity-70">선택</p>
-                      <h3 className="safe-text text-4xl font-black leading-tight">
+                      <h3 className="safe-text text-3xl font-black leading-tight">
                         행사 홍보 및 결과 전시를 위해 완성 사진 저장에 동의합니다.
                       </h3>
                     </div>
@@ -871,12 +1045,38 @@ export function BoothApp() {
                   </p>
                 </button>
 
-                <KioskButton onClick={() => void start()} className="min-h-[128px] text-5xl">
+              <div className="grid grid-cols-[1fr_360px] gap-5">
+                <KioskButton onClick={() => void start()} disabled={!requiredConsentAccepted} className="min-h-[100px] text-5xl">
                   동의하고 시작하기
                 </KioskButton>
                 <KioskButton onClick={() => setStep("idle")} tone="secondary">
                   처음 화면
                 </KioskButton>
+              </div>
+            </div>
+          )}
+
+          {!error && step === "analysis_help" && (
+            <div className="grid h-full place-items-center text-[#f4f1e8]">
+              <div className="grid w-full max-w-[1180px] gap-8 rounded-[4px] border-[4px] border-[#f4f1e8] bg-[#0b0b0b] p-10 text-center">
+                <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border-[4px] border-[#f4f1e8]">
+                  <Sparkles className="h-16 w-16" />
+                </div>
+                <div className="grid gap-4">
+                  <p className="text-2xl font-black tracking-[0.22em] text-[#f4f1e8]/60">01 분석 안내</p>
+                  <h2 className="safe-text text-6xl font-black leading-tight">첫 사진은 배경 생성을 위한 사진입니다</h2>
+                  <p className="safe-text mx-auto max-w-[940px] text-3xl font-black leading-snug text-[#f4f1e8]/74">
+                    이 사진은 최종 네컷에 들어가지 않습니다. 원하는 테마가 잘 나오도록 포즈, 소품, 손동작을 크게 보여 주세요.
+                  </p>
+                </div>
+                <div className="grid grid-cols-[1fr_220px] gap-5">
+                  <KioskButton onClick={beginAnalysisCapture} className="min-h-[118px] text-5xl">
+                    확인
+                  </KioskButton>
+                  <div className="grid place-items-center rounded-[4px] border-[3px] border-[#f4f1e8]/62 px-4 text-3xl font-black">
+                    {analysisHelpSeconds}초
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -999,8 +1199,12 @@ export function BoothApp() {
               <div className="grid gap-8 text-[#f4f1e8]">
                 <StepTitle
                   eyebrow="02 배경 생성"
-                  title="선택한 태그로 배경을 만들고 있습니다"
-                  detail="촬영은 먼저 진행하고, 여기서는 마지막 준비가 필요할 때만 잠시 기다립니다."
+                  title={pendingUploadAfterBackground ? "AI 배경 생성 대기 중" : "선택한 태그로 배경을 만들고 있습니다"}
+                  detail={
+                    pendingUploadAfterBackground
+                      ? "배경이 준비되면 선택한 사진 4장을 자동으로 합성합니다."
+                      : "촬영은 먼저 진행하고, 여기서는 마지막 준비가 필요할 때만 잠시 기다립니다."
+                  }
                   compact
                 />
                 {tagSelection && (
@@ -1020,7 +1224,7 @@ export function BoothApp() {
                     <KioskButton onClick={retryBackgroundGeneration} className="text-3xl">
                       다시 생성
                     </KioskButton>
-                    <KioskButton onClick={() => setStep("tag_select")} tone="secondary" className="text-3xl">
+                    <KioskButton onClick={editTagsFromBackground} tone="secondary" className="text-3xl">
                       태그 수정
                     </KioskButton>
                   </div>
@@ -1039,7 +1243,7 @@ export function BoothApp() {
                   compact
                 />
                 <div className="grid min-h-0 grid-cols-3 gap-4">
-                  {capturedPhotos.map((photo, index) => {
+                  {previewPhotos.map((photo, index) => {
                     const selectedOrder = selectedPhotoIndices.indexOf(index);
                     const selected = selectedOrder !== -1;
                     return (
@@ -1070,22 +1274,36 @@ export function BoothApp() {
               <div className="grid content-center gap-5">
                 <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
                 <BeautySelector value={beautyStrength} onChange={setBeautyStrength} />
+                {beautyPreviewStatus === "processing" && (
+                  <p className="rounded-[4px] border-2 border-[#f4f1e8]/55 px-5 py-3 text-center text-2xl font-black text-[#f4f1e8]/72">
+                    보정 미리보기 적용 중
+                  </p>
+                )}
+                {beautyPreviewError && (
+                  <p className="safe-text rounded-[4px] border-2 border-[#f04438]/70 px-5 py-3 text-center text-xl font-black text-[#f04438]">
+                    {beautyPreviewError}
+                  </p>
+                )}
                 {backgroundStatus === "error" ? (
                   <div className="grid grid-cols-2 gap-4">
                     <KioskButton onClick={retryBackgroundGeneration} className="text-3xl">
                       배경 다시 생성
                     </KioskButton>
-                    <KioskButton onClick={() => setStep("tag_select")} tone="secondary" className="text-3xl">
+                    <KioskButton onClick={editTagsFromBackground} tone="secondary" className="text-3xl">
                       태그 수정
                     </KioskButton>
                   </div>
                 ) : (
                   <KioskButton
                     onClick={() => void uploadSelectedPhotos()}
-                    disabled={!selectedReady || backgroundStatus !== "ready"}
+                    disabled={!selectedReady || beautyPreviewProcessing}
                     className="min-h-[108px] text-4xl"
                   >
-                    {backgroundStatus === "ready" ? "선택 완료" : "배경 생성 대기"}
+                    {beautyPreviewProcessing
+                      ? "보정 적용 중"
+                      : backgroundStatus === "ready"
+                        ? "선택 완료"
+                        : "선택 완료 후 배경 대기"}
                   </KioskButton>
                 )}
               </div>
@@ -1143,14 +1361,14 @@ export function BoothApp() {
                 <StepTitle
                   eyebrow="04 메일 입력"
                   title="메일 주소 입력"
-                  detail="입력한 주소로 완성본을 전송합니다"
+                  detail="@ 앞부분을 입력하고 도메인을 선택하면 완성본을 전송합니다"
                   compact
                 />
                 <div className="rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-6 text-2xl font-black leading-snug">
-                  앱 안의 키보드로만 입력됩니다. 주소 형식이 맞으면 전송 버튼이 활성화됩니다.
+                  메일을 받지 않아도 건너뛰기로 촬영을 마칠 수 있습니다.
                 </div>
               </div>
-              <EmailForm onSubmit={sendEmail} layout="landscape" />
+              <EmailForm onSubmit={sendEmail} onSkip={skipEmail} layout="landscape" />
             </div>
           )}
 
@@ -1161,7 +1379,7 @@ export function BoothApp() {
                   <Check className="h-20 w-20" />
                 </div>
                 <div className="grid gap-4">
-                  <h2 className="text-7xl font-black">전송 완료</h2>
+                  <h2 className="text-7xl font-black">{completeTitle}</h2>
                   <p className="text-3xl font-bold text-[#f4f1e8]/65">
                     {completeSeconds}초 뒤 처음 화면으로 돌아갑니다
                   </p>

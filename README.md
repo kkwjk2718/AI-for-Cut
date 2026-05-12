@@ -35,7 +35,7 @@ npm run dev
 - `OPENAI_IMAGE_TEXT_INPUT_USD_PER_1M`, `OPENAI_IMAGE_TEXT_CACHED_INPUT_USD_PER_1M`, `OPENAI_IMAGE_OUTPUT_USD_PER_1M`: 배경 생성 모델 비용 계산 단가
 - `OPENAI_IMAGE_FIXED_COST_USD_1024x1536_MEDIUM`: 이미지 생성 usage가 없을 때 쓰는 고정 비용. 기본값은 `0.041`
 
-개발 모드에서는 OpenAI 키가 없거나 이미지 생성에 실패하면 기본 과학축제 배경을 생성합니다. 운영 모드에서는 OpenAI 또는 Brevo 설정이 누락되면 실패로 처리합니다.
+개발 모드에서는 OpenAI 키가 없을 때만 기본 과학축제 배경을 생성합니다. OpenAI 키가 설정된 상태에서 이미지 생성이 실패하면 재시도가 필요한 오류로 처리합니다.
 
 ## 관리자 페이지
 
@@ -47,7 +47,7 @@ npm run dev
 - 관리자 기록에는 완성 시간, 선택 키워드, AI 사용량, 메일 전송 상태를 저장하고 `ADMIN_ARCHIVE_TTL_HOURS` 이후 정리합니다.
 - 비용은 OpenAI API가 반환한 usage token과 환경 변수의 USD/1M token 단가로 계산합니다.
 - 이미지 생성 usage가 없으면 `OPENAI_IMAGE_FIXED_COST_USD_1024x1536_MEDIUM` 고정 비용으로 기록합니다.
-- 이미지 생성이 `OPENAI_IMAGE_TIMEOUT_MS` 안에 끝나지 않으면 개발 모드에서는 fallback 배경으로 진행하고, 운영 모드에서는 에러로 재시도를 유도합니다.
+- 이미지 생성이 `OPENAI_IMAGE_TIMEOUT_MS` 안에 끝나지 않으면 자동 대체 배경으로 진행하지 않고 재시도가 필요한 오류로 처리합니다.
 - 카메라, Sharp 이미지 합성, Brevo 메일 비용은 포함하지 않습니다.
 
 ## 주요 흐름
@@ -55,11 +55,11 @@ npm run dev
 1. 개인정보 수집 및 이용 동의
 2. 분석용 사진 1장 촬영
 3. OpenAI 포즈 분석 및 키워드 추천
-4. 키워드 선택 후 배경 생성
-5. 배경 분위기를 본 뒤 최종 사진 6장 촬영
-6. 최종 사진 4장 선택 및 브라우저 인물 분리
+4. 키워드 선택 후 배경 생성 시작
+5. 배경 생성과 병렬로 최종 사진 6장 촬영
+6. 최종 사진 4장 선택, 얼굴 보정 미리보기, 브라우저 인물 분리
 7. 서버에서 배경과 네컷 템플릿 합성
-8. 이메일 주소 확인 후 Brevo 이메일 전송
+8. 이메일 주소 확인 후 Brevo 이메일 전송 또는 메일 건너뛰기
 9. 전송 성공 후 세션 파일 삭제
 
 ## 임시 파일 정리

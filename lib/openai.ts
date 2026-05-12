@@ -40,7 +40,7 @@ function analysisTimeoutSignal(): AbortSignal {
 }
 
 function imageTimeoutSignal(): AbortSignal {
-  return AbortSignal.timeout(timeoutMs("OPENAI_IMAGE_TIMEOUT_MS", 75_000));
+  return AbortSignal.timeout(timeoutMs("OPENAI_IMAGE_TIMEOUT_MS", 180_000));
 }
 
 function extractOutputText(payload: unknown): string | undefined {
@@ -280,12 +280,9 @@ export async function generateBackground(
   } catch (error) {
     await logError("openai_background_failed", {
       model: imageModel(),
-      fallbackUsed: !isProduction(),
+      fallbackUsed: false,
       message: error instanceof Error ? error.message : "unknown",
     });
-    if (isProduction()) {
-      throw error instanceof Error ? error : new Error("OpenAI image generation failed.");
-    }
-    return { buffer: await fallbackBackground(selected), usedFallback: true };
+    throw error instanceof Error ? error : new Error("OpenAI image generation failed.");
   }
 }
