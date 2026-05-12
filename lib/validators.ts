@@ -28,6 +28,9 @@ export function assertShotIndex(value: unknown): number {
   return index;
 }
 
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_BASE64_LENGTH = Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 16;
+
 export function parseDataUrl(value: unknown): { mime: string; buffer: Buffer } {
   if (typeof value !== "string") {
     throw new Error("이미지 데이터가 없습니다.");
@@ -38,8 +41,17 @@ export function parseDataUrl(value: unknown): { mime: string; buffer: Buffer } {
     throw new Error("지원하지 않는 이미지 형식입니다.");
   }
 
+  if (match[2].length > MAX_BASE64_LENGTH) {
+    throw new Error("이미지 용량이 너무 큽니다.");
+  }
+
+  const buffer = Buffer.from(match[2], "base64");
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    throw new Error("이미지 용량이 너무 큽니다.");
+  }
+
   return {
     mime: match[1] === "image/jpg" ? "image/jpeg" : match[1],
-    buffer: Buffer.from(match[2], "base64"),
+    buffer,
   };
 }

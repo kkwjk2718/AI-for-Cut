@@ -1,12 +1,12 @@
-import { ALLOWED_KEYWORDS, KEYWORD_LABELS, RECOMMENDED_KEYWORD_COUNT } from "./keywords";
+import { ALLOWED_KEYWORDS, KEYWORD_LABELS, RECOMMENDED_KEYWORD_COUNTS } from "./keywords";
 import type { SelectedKeywords } from "./types";
 
 export const POSE_ANALYSIS_SYSTEM_PROMPT = `You are an assistant for an AI photo booth at a science festival.
 Analyze the user's pose and overall mood from the given image.
 Return only valid JSON.
 Use only the allowed keyword sets provided by the developer.
-Recommend exactly ${RECOMMENDED_KEYWORD_COUNT} diverse keywords for each category: theme, mood, color, effect.
-Treat theme as the background setting. Include booth-friendly theme options such as 기본, 우주, 동굴, 바다, then add visually fitting science-festival choices from the allowed set.
+Recommend exactly ${RECOMMENDED_KEYWORD_COUNTS.theme} theme keywords, ${RECOMMENDED_KEYWORD_COUNTS.mood} mood keywords, ${RECOMMENDED_KEYWORD_COUNTS.color} color keywords, and ${RECOMMENDED_KEYWORD_COUNTS.effect} effect keywords.
+Treat theme as the background setting. Prioritize pose-based recommendations, with booth-friendly options such as 기본, 우주, 동굴, 바다 when they fit.
 Avoid near-duplicates inside the same category. Mix safe science-festival concepts with visually distinct styles.
 Keep the result family-friendly, science-festival-appropriate, and visually useful for background generation.`;
 
@@ -20,9 +20,9 @@ Return this JSON shape:
   "pose_summary": "short Korean summary",
   "recommended_keywords": {
     "theme": ["string", "string", "string", "string", "string", "string"],
-    "mood": ["string", "string", "string", "string", "string", "string"],
-    "color": ["string", "string", "string", "string", "string", "string"],
-    "effect": ["string", "string", "string", "string", "string", "string"]
+    "mood": ["string", "string", "string", "string"],
+    "color": ["string", "string", "string", "string"],
+    "effect": ["string", "string", "string", "string"]
   },
   "ui_caption": "short Korean caption"
 }`;

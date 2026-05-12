@@ -23,7 +23,15 @@ function indexPath(): string {
 }
 
 export function isAdminImageArchiveEnabled(): boolean {
-  return process.env.ADMIN_ARCHIVE_ENABLED?.trim().toLowerCase() === "true";
+  return (
+    process.env.ADMIN_ARCHIVE_ENABLED?.trim().toLowerCase() === "true" &&
+    process.env.ADMIN_ARCHIVE_STORE_IMAGES?.trim().toLowerCase() === "true"
+  );
+}
+
+function archiveTtlHours(): number {
+  const value = Number(process.env.ADMIN_ARCHIVE_TTL_HOURS ?? "24");
+  return Number.isFinite(value) && value > 0 ? value : 24;
 }
 
 async function ensureAdminStore(): Promise<void> {
@@ -39,7 +47,20 @@ export async function readAdminRecords(): Promise<AdminPhotoRecord[]> {
   try {
     const raw = await fs.readFile(indexPath(), "utf8");
     const records = JSON.parse(raw) as AdminPhotoRecord[];
-    return records.sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+    const cutoff = Date.now() - archiveTtlHours() * 60 * 60 * 1000;
+    const activeRecords = records.filter((record) => new Date(record.completedAt).getTime() >= cutoff);
+    const expiredRecords = records.filter((record) => !activeRecords.includes(record));
+
+    if (expiredRecords.length > 0) {
+      await Promise.all(
+        expiredRecords
+          .filter((record) => record.imageFile)
+          .map((record) => fs.rm(path.join(imageDir(), path.basename(record.imageFile as string)), { force: true })),
+      );
+      await writeRecords(activeRecords);
+    }
+
+    return activeRecords.sort((a, b) => b.completedAt.localeCompare(a.completedAt));
   } catch {
     return [];
   }

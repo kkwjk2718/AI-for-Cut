@@ -7,6 +7,7 @@ import { assertSessionId } from "./validators";
 
 const SESSION_FILE = "session.json";
 const PRIVACY_CONSENT_VERSION = "2026-05-privacy-v1";
+const sessionLocks = new Map<string, Promise<void>>();
 
 interface CreateSessionOptions {
   archiveImageConsent?: boolean;
@@ -27,6 +28,28 @@ function expiresAt(): string {
 
 function metadataPath(sessionId: string): string {
   return path.join(getSessionDir(sessionId), SESSION_FILE);
+}
+
+export async function withSessionLock<T>(sessionId: string, task: () => Promise<T>): Promise<T> {
+  const id = assertSessionId(sessionId);
+  const previous = sessionLocks.get(id) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const current = previous.catch(() => undefined).then(() => gate);
+
+  sessionLocks.set(id, current);
+  await previous.catch(() => undefined);
+
+  try {
+    return await task();
+  } finally {
+    release();
+    if (sessionLocks.get(id) === current) {
+      sessionLocks.delete(id);
+    }
+  }
 }
 
 export async function createSession(options: CreateSessionOptions = {}): Promise<BoothSession> {
@@ -82,9 +105,11 @@ export async function updateSession(
   sessionId: string,
   updater: (session: BoothSession) => BoothSession | void,
 ): Promise<BoothSession> {
-  const session = await readSession(sessionId);
-  const result = updater(session) ?? session;
-  return writeSession(result);
+  return withSessionLock(sessionId, async () => {
+    const session = await readSession(sessionId);
+    const result = updater(session) ?? session;
+    return writeSession(result);
+  });
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

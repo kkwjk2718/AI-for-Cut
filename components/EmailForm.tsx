@@ -17,7 +17,7 @@ const LETTER_ROWS = [
 
 const NUMBER_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const SYMBOL_KEYS = ["@", ".", "_", "-"];
-const QUICK_KEYS = [".com", ".kr", "gmail.com", "naver.com", "kakao.com"];
+const QUICK_KEYS = ["@gmail.com", "@naver.com", "@kakao.com", ".com", ".kr"];
 
 function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
@@ -26,6 +26,7 @@ function isEmail(value: string): boolean {
 export function EmailForm({ disabled, layout = "portrait", onSubmit }: EmailFormProps) {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const valid = useMemo(() => isEmail(email), [email]);
   const isLandscape = layout === "landscape";
 
@@ -33,15 +34,40 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit }: EmailForm
     if (disabled || submitting) {
       return;
     }
+    setConfirming(false);
     setEmail((current) => `${current}${value}`.slice(0, 254));
   }
 
+  function appendQuick(value: string) {
+    if (disabled || submitting) {
+      return;
+    }
+    setConfirming(false);
+    setEmail((current) => {
+      if (!value.startsWith("@")) {
+        return `${current}${value}`.slice(0, 254);
+      }
+
+      const domain = value.slice(1);
+      const local = current.includes("@") ? current.split("@")[0] : current;
+      if (!local) {
+        return current;
+      }
+      return `${local}@${domain}`.slice(0, 254);
+    });
+  }
+
   function backspace() {
+    setConfirming(false);
     setEmail((current) => current.slice(0, -1));
   }
 
   async function submit() {
     if (!valid || disabled || submitting) {
+      return;
+    }
+    if (!confirming) {
+      setConfirming(true);
       return;
     }
     setSubmitting(true);
@@ -73,7 +99,10 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit }: EmailForm
           />
           <button
             type="button"
-            onClick={() => setEmail("")}
+            onClick={() => {
+              setConfirming(false);
+              setEmail("");
+            }}
             disabled={disabled || submitting || email.length === 0}
             className="flex h-14 w-14 items-center justify-center rounded-[6px] border-[3px] border-[#12325b] bg-white disabled:opacity-35"
             aria-label="입력 지우기"
@@ -129,13 +158,37 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit }: EmailForm
               className={`rounded-[6px] border-[3px] border-[#12325b] bg-[#12325b] font-black text-white active:translate-y-[2px] ${
                 isLandscape ? "min-h-[56px] text-lg" : "min-h-[70px] text-xl"
               }`}
-              onClick={() => append(key)}
+              onClick={() => appendQuick(key)}
             >
               {key}
             </button>
           ))}
         </div>
       </div>
+
+      {confirming && (
+        <div className="grid gap-4 rounded-[8px] border-[3px] border-[#12325b] bg-white p-5 text-center">
+          <p className="text-2xl font-black text-[#12325b]/60">이 주소로 보낼까요?</p>
+          <p className="safe-text break-all text-4xl font-black text-[#12325b]">{email}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="min-h-[68px] rounded-[6px] border-[3px] border-[#12325b] bg-white text-2xl font-black text-[#12325b] active:translate-y-[2px]"
+            >
+              수정하기
+            </button>
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={submitting}
+              className="min-h-[68px] rounded-[6px] border-[3px] border-[#12325b] bg-[#12325b] text-2xl font-black text-white active:translate-y-[2px] disabled:opacity-45"
+            >
+              전송하기
+            </button>
+          </div>
+        </div>
+      )}
 
       <button
         type="button"
@@ -146,7 +199,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit }: EmailForm
         }`}
       >
         <Send className="h-9 w-9" />
-        {submitting ? "전송 중" : "메일로 받기"}
+        {submitting ? "전송 중" : confirming ? "주소 확인 중" : "메일로 받기"}
       </button>
     </div>
   );

@@ -1,3 +1,5 @@
+import { logError, logEvent } from "./event-log";
+
 interface SendPhotoEmailOptions {
   to: string;
   image: Buffer;
@@ -61,9 +63,11 @@ export async function sendPhotoEmail({
 
   if (!response.ok) {
     const detail = await response.text();
+    await logError("brevo_email_failed", { status: response.status });
     throw new Error(`Brevo email failed: ${response.status} ${detail}`);
   }
 
   const payload = (await response.json()) as { messageId?: string };
+  await logEvent("brevo_email_sent", { hasMessageId: Boolean(payload.messageId) });
   return { success: true, skipped: false, messageId: payload.messageId };
 }

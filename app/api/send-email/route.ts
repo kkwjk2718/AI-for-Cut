@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { markAdminEmailSent } from "@/lib/admin-store";
 import { sendPhotoEmail } from "@/lib/brevo";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { deleteSession, readSession, updateSession } from "@/lib/session-store";
 import { readSessionFile } from "@/lib/storage";
 import { assertSessionId, isEmail } from "@/lib/validators";
@@ -9,6 +11,14 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const rate = checkRateLimit(request, "send-email", { limit: 10, windowMs: 60_000 });
+    if (!rate.ok) {
+      return NextResponse.json(
+        { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } },
+      );
+    }
+
     const body = (await request.json()) as { sessionId?: string; email?: string };
     const sessionId = assertSessionId(body.sessionId);
     const session = await readSession(sessionId);
@@ -20,11 +30,13 @@ export async function POST(request: Request) {
       throw new Error("완성된 이미지가 없습니다.");
     }
 
-    const image = await readSessionFile(sessionId, session.files.final);
+    const image = await sharp(await readSessionFile(sessionId, session.files.final))
+      .jpeg({ quality: 90, mozjpeg: true })
+      .toBuffer();
     const result = await sendPhotoEmail({
       to: body.email,
       image,
-      fileName: "ai-4cut.png",
+      fileName: "gshs-ai-4cut.jpg",
     });
 
     await updateSession(sessionId, (draft) => {

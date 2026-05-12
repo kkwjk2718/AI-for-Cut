@@ -1,5 +1,6 @@
 import sharp from "sharp";
-import { createCostLine, extractOpenAiUsage } from "./costs";
+import { createCostLine, createFixedCostLine, extractOpenAiUsage } from "./costs";
+import { logError, logEvent } from "./event-log";
 import { FALLBACK_ANALYSIS, normalizeAnalysis } from "./keywords";
 import { backgroundPrompt, POSE_ANALYSIS_SYSTEM_PROMPT, poseAnalysisUserPrompt } from "./prompts";
 import type { AiCostLine, PoseAnalysis, SelectedKeywords } from "./types";
@@ -22,6 +23,11 @@ function analysisModel(): string {
 
 function imageModel(): string {
   return process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+}
+
+function imageFixedCostUsd(): number {
+  const value = Number(process.env.OPENAI_IMAGE_FIXED_COST_USD_1024x1536_MEDIUM);
+  return Number.isFinite(value) && value >= 0 ? value : 0.041;
 }
 
 function extractOutputText(payload: unknown): string | undefined {
@@ -119,6 +125,11 @@ export async function analyzePose(
       ),
     };
   } catch (error) {
+    await logError("openai_pose_analysis_failed", {
+      model: analysisModel(),
+      fallbackUsed: !isProduction(),
+      message: error instanceof Error ? error.message : "unknown",
+    });
     if (isProduction()) {
       throw error instanceof Error ? error : new Error("OpenAI analysis failed.");
     }
@@ -217,14 +228,23 @@ export async function generateBackground(
       data?: Array<{ b64_json?: string; url?: string }>;
       usage?: unknown;
     };
-    const costLine = createCostLine(
-      "background_generation",
-      "Background generation",
-      imageModel(),
-      extractOpenAiUsage(payload),
-    );
+    const costLine =
+      createCostLine(
+        "background_generation",
+        "Background generation",
+        imageModel(),
+        extractOpenAiUsage(payload),
+      ) ??
+      createFixedCostLine(
+        "background_generation",
+        "Background generation",
+        imageModel(),
+        imageFixedCostUsd(),
+        "Estimated from configured fixed image price because OpenAI image usage tokens were not returned.",
+      );
     const image = payload.data?.[0];
     if (image?.b64_json) {
+      await logEvent("openai_background_generated", { model: imageModel(), pricing: costLine.pricingNote ?? null });
       return { buffer: Buffer.from(image.b64_json, "base64"), usedFallback: false, costLine };
     }
     if (image?.url) {
@@ -232,6 +252,7 @@ export async function generateBackground(
       if (!imageResponse.ok) {
         throw new Error("Generated image URL could not be fetched.");
       }
+      await logEvent("openai_background_generated", { model: imageModel(), pricing: costLine.pricingNote ?? null });
       return {
         buffer: Buffer.from(await imageResponse.arrayBuffer()),
         usedFallback: false,
@@ -240,6 +261,11 @@ export async function generateBackground(
     }
     throw new Error("OpenAI image generation returned no image.");
   } catch (error) {
+    await logError("openai_background_failed", {
+      model: imageModel(),
+      fallbackUsed: !isProduction(),
+      message: error instanceof Error ? error.message : "unknown",
+    });
     if (isProduction()) {
       throw error instanceof Error ? error : new Error("OpenAI image generation failed.");
     }

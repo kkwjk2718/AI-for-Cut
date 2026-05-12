@@ -3,7 +3,7 @@ import path from "path";
 import { redirect } from "next/navigation";
 import { AdminLogoutButton } from "@/components/AdminLogoutButton";
 import { isAdminCookieAuthenticated } from "@/lib/admin-auth";
-import { isAdminImageArchiveEnabled } from "@/lib/admin-store";
+import { isAdminImageArchiveEnabled, readAdminRecords } from "@/lib/admin-store";
 import { isBrevoConfigured } from "@/lib/brevo";
 import { isOpenAiConfigured } from "@/lib/openai";
 import { getStorageRoot } from "@/lib/storage";
@@ -97,6 +97,86 @@ async function checkTempStorage(): Promise<HealthCheck> {
   }
 }
 
+async function checkDiskSpace(): Promise<HealthCheck> {
+  try {
+    const statfs = (fs as typeof fs & {
+      statfs?: (path: string) => Promise<{ bavail: number; bsize: number }>;
+    }).statfs;
+    if (!statfs) {
+      return { label: "디스크 여유 공간", state: "warn", detail: "현재 Node 런타임에서 디스크 잔여량을 확인할 수 없습니다." };
+    }
+    const stats = await statfs(getStorageRoot());
+    const freeBytes = stats.bavail * stats.bsize;
+    const freeGb = freeBytes / 1024 / 1024 / 1024;
+    return {
+      label: "디스크 여유 공간",
+      state: freeGb >= 5 ? "ok" : "warn",
+      detail: `${freeGb.toFixed(1)}GB 사용 가능`,
+    };
+  } catch (error) {
+    return {
+      label: "디스크 여유 공간",
+      state: "warn",
+      detail: error instanceof Error ? error.message : "디스크 잔여량 확인에 실패했습니다.",
+    };
+  }
+}
+
+async function checkMediaPipeAssets(): Promise<HealthCheck> {
+  const required = [
+    "selfie_segmentation.binarypb",
+    "selfie_segmentation.tflite",
+    "selfie_segmentation_landscape.tflite",
+    "selfie_segmentation_solution_wasm_bin.js",
+    "selfie_segmentation_solution_wasm_bin.wasm",
+  ];
+  const root = path.join(process.cwd(), "public", "vendor", "mediapipe", "selfie_segmentation");
+  const missing: string[] = [];
+
+  await Promise.all(
+    required.map(async (fileName) => {
+      try {
+        await fs.access(path.join(root, fileName));
+      } catch {
+        missing.push(fileName);
+      }
+    }),
+  );
+
+  return {
+    label: "MediaPipe",
+    state: missing.length === 0 ? "ok" : "fail",
+    detail: missing.length === 0 ? "로컬 segmentation asset이 준비되어 있습니다." : `누락: ${missing.join(", ")}`,
+  };
+}
+
+async function checkBrandAssets(): Promise<HealthCheck> {
+  const required = ["school-mark.png", "keuni-deuri-hands.png"];
+  const root = path.join(process.cwd(), "public", "brand");
+  const missing: string[] = [];
+
+  await Promise.all(
+    required.map(async (fileName) => {
+      try {
+        await fs.access(path.join(root, fileName));
+      } catch {
+        missing.push(fileName);
+      }
+    }),
+  );
+
+  return {
+    label: "브랜드 asset",
+    state: missing.length === 0 ? "ok" : "warn",
+    detail: missing.length === 0 ? "프레임 로고 asset이 준비되어 있습니다." : `누락 시 기본 프레임으로 대체됩니다: ${missing.join(", ")}`,
+  };
+}
+
+function todayKst(value: string): boolean {
+  const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", dateStyle: "short" });
+  return formatter.format(new Date(value)) === formatter.format(new Date());
+}
+
 function localConfigChecks(): HealthCheck[] {
   return [
     {
@@ -117,6 +197,11 @@ function localConfigChecks(): HealthCheck[] {
       detail: process.env.CRON_SECRET?.trim()
         ? "cleanup-expired 보호 토큰이 설정되어 있습니다."
         : "cleanup-expired API 호출 보호를 위해 CRON_SECRET이 필요합니다.",
+    },
+    {
+      label: "카메라 권한",
+      state: "warn",
+      detail: "브라우저 권한은 촬영 화면에서 실제 카메라를 켜서 확인해야 합니다.",
     },
   ];
 }
@@ -141,9 +226,23 @@ export default async function AdminHealthPage() {
   }
 
   const checks = [
-    ...(await Promise.all([checkOpenAi(), checkBrevo(), checkTempStorage()])),
+    ...(await Promise.all([
+      checkOpenAi(),
+      checkBrevo(),
+      checkTempStorage(),
+      checkDiskSpace(),
+      checkMediaPipeAssets(),
+      checkBrandAssets(),
+    ])),
     ...localConfigChecks(),
   ];
+  const records = await readAdminRecords();
+  const todayRecords = records.filter((record) => todayKst(record.completedAt));
+  const todayEmailCount = todayRecords.filter((record) => record.email && !record.email.skipped).length;
+  const avgCost =
+    records.length > 0
+      ? records.reduce((sum, record) => sum + record.aiCost.totalUsd, 0) / records.length
+      : 0;
 
   return (
     <main className="min-h-screen bg-[#101722] p-8 text-white">
@@ -174,6 +273,30 @@ export default async function AdminHealthPage() {
           {checks.map((check) => (
             <HealthCard key={check.label} check={check} />
           ))}
+        </section>
+
+        <section className="grid gap-5 lg:grid-cols-3">
+          <HealthCard
+            check={{
+              label: "오늘 생성 수",
+              state: "ok",
+              detail: `${todayRecords.length.toLocaleString()}건`,
+            }}
+          />
+          <HealthCard
+            check={{
+              label: "오늘 이메일 발송",
+              state: "ok",
+              detail: `${todayEmailCount.toLocaleString()}건`,
+            }}
+          />
+          <HealthCard
+            check={{
+              label: "평균 AI 비용",
+              state: "ok",
+              detail: `$${avgCost.toFixed(avgCost >= 1 ? 2 : 4)}`,
+            }}
+          />
         </section>
       </div>
     </main>

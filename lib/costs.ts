@@ -127,6 +127,31 @@ export function createCostLine(
   };
 }
 
+export function createFixedCostLine(
+  kind: AiCostKind,
+  label: string,
+  model: string,
+  costUsd: number,
+  pricingNote: string,
+): AiCostLine {
+  return {
+    id: randomUUID(),
+    kind,
+    label,
+    model,
+    createdAt: new Date().toISOString(),
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    inputUsdPer1M: 0,
+    cachedInputUsdPer1M: 0,
+    outputUsdPer1M: 0,
+    costUsd: Math.max(costUsd, 0),
+    pricingNote,
+  };
+}
+
 export function summarizeCost(lines: AiCostLine[] = []): AiCostSummary {
   return {
     currency: "USD",

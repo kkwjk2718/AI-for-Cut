@@ -23,6 +23,8 @@ import type { ApiResponse, KeywordCategory, PoseAnalysis, SelectedKeywords } fro
 type Step =
   | "idle"
   | "consent"
+  | "analysis_capture"
+  | "background_loading"
   | "capture"
   | "analysis_loading"
   | "tag_select"
@@ -50,13 +52,17 @@ const BACKGROUND_STAGES = [
   "이미지 생성 요청",
   "사진 합성 준비",
 ];
+const FINAL_CAPTURE_COUNT = 6;
+const COUNTDOWN_VALUES = [3, 2, 1];
 
 const STEP_STAGE: Record<Step, number> = {
   idle: 0,
   consent: 0,
-  capture: 1,
+  analysis_capture: 1,
+  capture: 3,
   analysis_loading: 2,
   tag_select: 2,
+  background_loading: 3,
   select_photos: 3,
   uploading: 3,
   compose: 4,
@@ -309,10 +315,10 @@ function BeautySelector({
   );
 }
 
-function CaptureRail({ captured, activeIndex }: { captured: string[]; activeIndex: number }) {
+function CaptureRail({ captured, activeIndex, count }: { captured: string[]; activeIndex: number; count: number }) {
   return (
-    <div className="grid grid-cols-7 gap-3">
-      {Array.from({ length: 7 }, (_, index) => {
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
+      {Array.from({ length: count }, (_, index) => {
         const src = captured[index];
         return (
           <div
@@ -394,6 +400,7 @@ export function BoothApp() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [analysisPhoto, setAnalysisPhoto] = useState<string | null>(null);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [shotIndex, setShotIndex] = useState(1);
   const [shotStatus, setShotStatus] = useState("카메라를 준비하고 있습니다");
@@ -412,7 +419,7 @@ export function BoothApp() {
 
   const activeRun = useCallback(() => flowRunRef.current, []);
   const onReadyChange = useCallback((ready: boolean) => setCameraReady(ready), []);
-  const cameraActive = step === "capture";
+  const cameraActive = step === "analysis_capture" || step === "capture";
   const selectedReady = selectedPhotoIndices.length === 4;
 
   function requireSession(): string {
@@ -423,7 +430,7 @@ export function BoothApp() {
   }
 
   async function runCountdown(runId: number): Promise<void> {
-    for (const value of [5, 4, 3, 2, 1]) {
+    for (const value of COUNTDOWN_VALUES) {
       if (flowRunRef.current !== runId) {
         return;
       }
@@ -439,6 +446,7 @@ export function BoothApp() {
       captureStartedRef.current = false;
       setError(null);
       setFinalUrl(null);
+      setAnalysisPhoto(null);
       setCapturedPhotos([]);
       setSelectedPhotoIndices([]);
       setAnalysis(null);
@@ -455,7 +463,7 @@ export function BoothApp() {
         archiveImageConsent,
       });
       setSessionId(data.sessionId);
-      setStep("capture");
+      setStep("analysis_capture");
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "세션을 시작하지 못했습니다");
     }
@@ -469,6 +477,7 @@ export function BoothApp() {
     setStep("idle");
     setSessionId(null);
     setCameraReady(false);
+    setAnalysisPhoto(null);
     setCapturedPhotos([]);
     setSelectedPhotoIndices([]);
     setAnalysis(null);
@@ -512,17 +521,43 @@ export function BoothApp() {
     [sessionId],
   );
 
-  const captureSevenPhotos = useCallback(async () => {
+  const captureAnalysisPhoto = useCallback(async () => {
+    const runId = activeRun();
+    try {
+      setError(null);
+      setShotIndex(1);
+      setShotStatus("AI가 포즈를 분석할 사진을 준비해 주세요");
+      await sleep(500);
+      await runCountdown(runId);
+      if (flowRunRef.current !== runId) {
+        return;
+      }
+      const captured = cameraRef.current?.capture("image/png");
+      if (!captured) {
+        throw new Error("사진을 촬영하지 못했습니다");
+      }
+      setAnalysisPhoto(captured);
+      setShotStatus("분석용 사진 저장 완료");
+      await analyzeFirstPhoto(captured, runId);
+    } catch (captureError) {
+      setCountdown(null);
+      setError(captureError instanceof Error ? captureError.message : "분석용 사진 촬영에 실패했습니다");
+    }
+  }, [activeRun, analyzeFirstPhoto]);
+
+  const captureFinalPhotos = useCallback(async () => {
     const runId = activeRun();
     const photos: string[] = [];
     try {
       setError(null);
-      for (let index = 1; index <= 7; index += 1) {
+      setCapturedPhotos([]);
+      setSelectedPhotoIndices([]);
+      for (let index = 1; index <= FINAL_CAPTURE_COUNT; index += 1) {
         if (flowRunRef.current !== runId) {
           return;
         }
         setShotIndex(index);
-        setShotStatus(`${index}번째 사진을 준비해 주세요`);
+        setShotStatus(`${index}번째 최종 사진을 준비해 주세요`);
         await sleep(index === 1 ? 500 : 900);
         await runCountdown(runId);
         if (flowRunRef.current !== runId) {
@@ -536,25 +571,29 @@ export function BoothApp() {
         setCapturedPhotos([...photos]);
         setShotStatus(`${index}번째 사진 저장 완료`);
       }
-      if (photos[0] && flowRunRef.current === runId) {
-        await analyzeFirstPhoto(photos[0], runId);
+      if (flowRunRef.current === runId) {
+        setStep("select_photos");
       }
     } catch (captureError) {
       setCountdown(null);
-      setError(captureError instanceof Error ? captureError.message : "7장 촬영에 실패했습니다");
+      setError(captureError instanceof Error ? captureError.message : "최종 사진 촬영에 실패했습니다");
     }
-  }, [activeRun, analyzeFirstPhoto]);
+  }, [activeRun]);
 
   useEffect(() => {
-    if (step !== "capture" || !cameraReady || captureStartedRef.current) {
+    if ((step !== "analysis_capture" && step !== "capture") || !cameraReady || captureStartedRef.current) {
       return;
     }
     captureStartedRef.current = true;
-    void captureSevenPhotos();
-  }, [step, cameraReady, captureSevenPhotos]);
+    if (step === "analysis_capture") {
+      void captureAnalysisPhoto();
+      return;
+    }
+    void captureFinalPhotos();
+  }, [step, cameraReady, captureAnalysisPhoto, captureFinalPhotos]);
 
   const startBackgroundGeneration = useCallback(
-    async (selectedKeywords: SelectedKeywords) => {
+    async (selectedKeywords: SelectedKeywords): Promise<boolean> => {
       const runId = activeRun();
       try {
         setBackgroundStatus("generating");
@@ -565,18 +604,20 @@ export function BoothApp() {
           selectedKeywords,
         });
         if (flowRunRef.current !== runId) {
-          return;
+          return false;
         }
         setBackgroundProgress(100);
         setBackgroundStatus("ready");
+        return true;
       } catch (backgroundGenerationError) {
         if (flowRunRef.current !== runId) {
-          return;
+          return false;
         }
         setBackgroundStatus("error");
         setBackgroundError(
           backgroundGenerationError instanceof Error ? backgroundGenerationError.message : "배경 생성에 실패했습니다",
         );
+        return false;
       }
     },
     [activeRun, sessionId],
@@ -592,13 +633,23 @@ export function BoothApp() {
     return () => window.clearInterval(interval);
   }, [backgroundStatus]);
 
-  function chooseTagsAndContinue() {
+  async function chooseTagsAndContinue() {
     if (!tagSelection) {
       return;
     }
+    const runId = activeRun();
     setSelectedPhotoIndices([]);
-    setStep("select_photos");
-    void startBackgroundGeneration(tagSelection);
+    setStep("background_loading");
+    const ready = await startBackgroundGeneration(tagSelection);
+    if (!ready || flowRunRef.current !== runId) {
+      return;
+    }
+    captureStartedRef.current = false;
+    setCapturedPhotos([]);
+    setShotIndex(1);
+    setShotStatus("최종 촬영을 준비하고 있습니다");
+    setCameraReady(false);
+    setStep("capture");
   }
 
   function togglePhoto(index: number) {
@@ -665,7 +716,8 @@ export function BoothApp() {
       setCompleteSeconds(10);
       setStep("complete");
     } catch (emailError) {
-      setError(emailError instanceof Error ? emailError.message : "메일 전송에 실패했습니다");
+      const message = emailError instanceof Error ? emailError.message : "메일 전송에 실패했습니다";
+      setError(`${message} 운영요원에게 화면을 보여주세요. 이메일을 수정한 뒤 다시 전송할 수 있습니다.`);
     }
   }
 
@@ -688,8 +740,12 @@ export function BoothApp() {
   const retry = () => {
     const lastStep = step;
     setError(null);
-    if (lastStep === "select_photos" && tagSelection) {
-      void startBackgroundGeneration(tagSelection);
+    if ((lastStep === "background_loading" || lastStep === "select_photos") && tagSelection) {
+      void chooseTagsAndContinue();
+      return;
+    }
+    if (lastStep === "email") {
+      setStep("email");
       return;
     }
     void restart();
@@ -721,8 +777,8 @@ export function BoothApp() {
                   <p className="safe-text max-w-[820px] text-3xl font-black leading-[1.25]">{EVENT_TITLE}</p>
                 </div>
 
-                <div className="grid grid-cols-4 gap-3 text-center">
-                  {["7장 촬영", "태그 선택", "4장 선택", "메일 전송"].map((label) => (
+                <div className="grid grid-cols-5 gap-3 text-center">
+                  {["분석 1장", "태그 선택", "6장 촬영", "4장 선택", "메일 전송"].map((label) => (
                     <div key={label} className="rounded-[4px] border-[2px] border-[#f4f1e8]/55 px-4 py-5 text-xl font-black">
                       {label}
                     </div>
@@ -806,7 +862,7 @@ export function BoothApp() {
             </div>
           )}
 
-          {!error && step === "capture" && (
+          {!error && (step === "analysis_capture" || step === "capture") && (
             <div className="grid min-h-0 grid-cols-[1fr_620px] gap-9">
               <div className="grid min-h-0 place-items-center">
                 <div className="relative h-full max-h-[820px] w-full max-w-[615px]">
@@ -817,21 +873,25 @@ export function BoothApp() {
                     variant="kiosk"
                   />
                   <div className="absolute bottom-6 left-6 right-6 rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#050505] px-7 py-4 text-center text-3xl font-black text-[#f4f1e8]">
-                    7장 자동 촬영
+                    {step === "analysis_capture" ? "AI 분석용 1장 촬영" : `${FINAL_CAPTURE_COUNT}장 자동 촬영`}
                   </div>
                 </div>
               </div>
               <div className="grid content-center gap-8">
                 <StepTitle
-                  eyebrow="01 촬영"
-                  title={`${shotIndex}/7 사진`}
+                  eyebrow={step === "analysis_capture" ? "01 분석 촬영" : "03 최종 촬영"}
+                  title={step === "analysis_capture" ? "분석용 사진" : `${shotIndex}/${FINAL_CAPTURE_COUNT} 사진`}
                   detail={shotStatus}
                   compact
                   right={<div className="rounded-[4px] bg-[#f4f1e8] px-6 py-4 text-2xl font-black text-[#050505]">AUTO</div>}
                 />
-                <CaptureRail captured={capturedPhotos} activeIndex={shotIndex} />
+                <CaptureRail captured={step === "analysis_capture" ? (analysisPhoto ? [analysisPhoto] : []) : capturedPhotos} activeIndex={shotIndex} count={step === "analysis_capture" ? 1 : FINAL_CAPTURE_COUNT} />
                 <div className="rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-7">
-                  <p className="safe-text text-4xl font-black leading-tight">첫 번째 사진으로 배경 태그를 만들고, 나중에 마음에 드는 4장을 고릅니다.</p>
+                  <p className="safe-text text-4xl font-black leading-tight">
+                    {step === "analysis_capture"
+                      ? "먼저 한 장을 찍어 AI가 어울리는 배경 태그를 추천합니다."
+                      : "완성된 배경 분위기를 보고 포즈를 바꿔 보세요. 6장 중 마음에 드는 4장을 고릅니다."}
+                  </p>
                 </div>
               </div>
             </div>
@@ -850,7 +910,7 @@ export function BoothApp() {
               <div className="grid content-center gap-5">
                 <div className="overflow-hidden rounded-[4px] border-[3px] border-[#f4f1e8] bg-[#0b0b0b] p-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={capturedPhotos[0]} alt="태그 기준 사진" className="aspect-[3/4] w-full object-cover" />
+                  <img src={analysisPhoto ?? capturedPhotos[0]} alt="태그 기준 사진" className="aspect-[3/4] w-full object-cover" />
                 </div>
                 <p className="text-center text-xl font-black text-[#f4f1e8]/58">1번 사진 기준 태그</p>
               </div>
@@ -876,7 +936,12 @@ export function BoothApp() {
                           {tagSelection[category]}
                         </p>
                       </div>
-                      <div className="grid grid-cols-6 gap-3">
+                      <div
+                        className="grid gap-3"
+                        style={{
+                          gridTemplateColumns: `repeat(${analysis.recommended_keywords[category].length}, minmax(0, 1fr))`,
+                        }}
+                      >
                         {analysis.recommended_keywords[category].map((keyword) => {
                           const active = tagSelection[category] === keyword;
                           return (
@@ -899,11 +964,34 @@ export function BoothApp() {
                   ))}
                 </div>
 
-                <KioskButton onClick={chooseTagsAndContinue} className="min-h-[112px] text-4xl">
+                <KioskButton onClick={() => void chooseTagsAndContinue()} className="min-h-[112px] text-4xl">
                   태그 확정
                   <ArrowRight className="h-11 w-11" />
                 </KioskButton>
               </div>
+            </div>
+          )}
+
+          {!error && step === "background_loading" && (
+            <div className="grid h-full grid-cols-[1fr_620px] items-center gap-10">
+              <div className="grid gap-8 text-[#f4f1e8]">
+                <StepTitle
+                  eyebrow="02 배경 생성"
+                  title="선택한 태그로 배경을 만들고 있습니다"
+                  detail="배경이 준비되면 바로 6장 촬영으로 넘어갑니다."
+                  compact
+                />
+                {tagSelection && (
+                  <div className="flex flex-wrap gap-3">
+                    {CATEGORIES.map((category) => (
+                      <span key={category} className="rounded-[4px] border-2 border-[#f4f1e8]/55 px-5 py-3 text-2xl font-black">
+                        {CATEGORY_LABELS[category]}: {tagSelection[category]}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
             </div>
           )}
 
@@ -916,7 +1004,7 @@ export function BoothApp() {
                   detail="마음에 드는 사진 4장을 선택해 주세요. 선택한 순서대로 최종 프레임에 들어갑니다."
                   compact
                 />
-                <div className="grid min-h-0 grid-cols-4 gap-4">
+                <div className="grid min-h-0 grid-cols-3 gap-4">
                   {capturedPhotos.map((photo, index) => {
                     const selectedOrder = selectedPhotoIndices.indexOf(index);
                     const selected = selectedOrder !== -1;

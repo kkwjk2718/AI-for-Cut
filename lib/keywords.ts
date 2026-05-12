@@ -7,9 +7,14 @@ export const KEYWORD_LABELS: Record<KeywordCategory, string> = {
   effect: "효과",
 };
 
-export const RECOMMENDED_KEYWORD_COUNT = 6;
+export const RECOMMENDED_KEYWORD_COUNTS: Record<KeywordCategory, number> = {
+  theme: 6,
+  mood: 4,
+  color: 4,
+  effect: 4,
+};
 
-export const THEME_PRESET_KEYWORDS = ["기본", "우주", "동굴", "바다"] as const;
+export const POPULAR_THEME_KEYWORDS = ["우주", "바다"] as const;
 
 export const ALLOWED_KEYWORDS: KeywordSet = {
   theme: [
@@ -82,10 +87,10 @@ export const FALLBACK_ANALYSIS: PoseAnalysis = {
   people_count: 1,
   pose_summary: "밝고 즐거운 포즈",
   recommended_keywords: {
-    theme: ALLOWED_KEYWORDS.theme.slice(0, RECOMMENDED_KEYWORD_COUNT),
-    mood: ALLOWED_KEYWORDS.mood.slice(0, RECOMMENDED_KEYWORD_COUNT),
-    color: ALLOWED_KEYWORDS.color.slice(0, RECOMMENDED_KEYWORD_COUNT),
-    effect: ALLOWED_KEYWORDS.effect.slice(0, RECOMMENDED_KEYWORD_COUNT),
+    theme: ALLOWED_KEYWORDS.theme.slice(0, RECOMMENDED_KEYWORD_COUNTS.theme),
+    mood: ALLOWED_KEYWORDS.mood.slice(0, RECOMMENDED_KEYWORD_COUNTS.mood),
+    color: ALLOWED_KEYWORDS.color.slice(0, RECOMMENDED_KEYWORD_COUNTS.color),
+    effect: ALLOWED_KEYWORDS.effect.slice(0, RECOMMENDED_KEYWORD_COUNTS.effect),
   },
   ui_caption: "포즈에 어울리는 과학축제 배경 키워드를 준비했어요.",
   usedFallback: true,
@@ -111,16 +116,18 @@ export function normalizeAnalysis(input: unknown): PoseAnalysis {
       const rawValues = (recommended as Partial<KeywordSet>)[category];
       const values = Array.isArray(rawValues) ? rawValues : [];
       const allowed = ALLOWED_KEYWORDS[category];
+      const limit = RECOMMENDED_KEYWORD_COUNTS[category];
+      const aiLimit = category === "theme" ? 4 : limit;
       const clean = values
         .filter((value): value is string => typeof value === "string")
         .filter((value) => allowed.includes(value))
-        .slice(0, RECOMMENDED_KEYWORD_COUNT);
-      const pinned = category === "theme" ? [...THEME_PRESET_KEYWORDS] : [];
-      const merged = [...pinned, ...clean, ...allowed].filter(
+        .slice(0, aiLimit);
+      const popular = category === "theme" ? [...POPULAR_THEME_KEYWORDS] : [];
+      const merged = [...clean, ...popular, ...allowed].filter(
         (value, index, array) => array.indexOf(value) === index,
       );
 
-      acc[category] = merged.slice(0, RECOMMENDED_KEYWORD_COUNT);
+      acc[category] = merged.slice(0, limit);
       return acc;
     },
     {} as KeywordSet,

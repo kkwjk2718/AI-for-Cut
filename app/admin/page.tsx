@@ -25,6 +25,16 @@ function totalTokens(lines: AiCostLine[]): number {
   return lines.reduce((sum, line) => sum + line.totalTokens, 0);
 }
 
+function topKeywords(records: AdminPhotoRecord[]): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const record of records) {
+    for (const keyword of Object.values(record.selectedKeywords ?? {})) {
+      counts.set(keyword, (counts.get(keyword) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[28px] border-2 border-white/10 bg-white/10 p-6 text-white shadow-panel">
@@ -79,6 +89,7 @@ export default async function AdminPage() {
   const sentCount = records.filter((record) => record.email && !record.email.skipped).length;
   const archivedImageCount = records.filter((record) => record.imageFile).length;
   const avgCost = records.length ? totalCost / records.length : 0;
+  const keywordRanking = topKeywords(records);
 
   return (
     <main className="min-h-screen bg-[#101722] p-8 text-white">
@@ -120,6 +131,19 @@ export default async function AdminPage() {
             {` ${archivedImageCount.toLocaleString()}장`}
           </p>
         </section>
+
+        {keywordRanking.length > 0 && (
+          <section className="grid gap-4 rounded-[28px] border-2 border-white/10 bg-white/8 p-6">
+            <h2 className="safe-text text-3xl font-black">선택 키워드 TOP 10</h2>
+            <div className="flex flex-wrap gap-3">
+              {keywordRanking.map(([keyword, count]) => (
+                <span key={keyword} className="rounded-full bg-white/12 px-5 py-3 text-xl font-black">
+                  {keyword} {count.toLocaleString()}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="grid gap-6">
           {records.length === 0 ? (

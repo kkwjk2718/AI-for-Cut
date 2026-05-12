@@ -39,6 +39,17 @@ export async function normalizeShotForBooth(buffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
+export async function assertImagePixelLimit(buffer: Buffer): Promise<void> {
+  const metadata = await sharp(buffer).metadata();
+  const width = metadata.width ?? 0;
+  const height = metadata.height ?? 0;
+  const maxPixels = 20_000_000;
+
+  if (!width || !height || width * height > maxPixels) {
+    throw new Error("이미지 해상도가 너무 큽니다.");
+  }
+}
+
 export async function assertForegroundHasAlpha(buffer: Buffer): Promise<void> {
   const { data, info } = await sharp(buffer)
     .rotate()
@@ -101,16 +112,8 @@ async function frameDecoration(): Promise<Buffer> {
     <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 68}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="31" font-weight="900" fill="#ffffff">${EVENT_TITLE_LINE_2}</text>
   </svg>`;
 
-  const schoolMark = await sharp(brandAsset("school-mark.png"))
-    .resize(148, 148, { fit: "cover", position: "center" })
-    .composite([{ input: await roundedMask(148, 148, 74), blend: "dest-in" }])
-    .png()
-    .toBuffer();
-
-  const characters = await sharp(brandAsset("keuni-deuri-hands.png"))
-    .resize({ width: 220, height: 144, fit: "inside", withoutEnlargement: true })
-    .png()
-    .toBuffer();
+  const schoolMark = await makeSchoolMark();
+  const characters = await makeCharacterMark();
 
   return sharp(Buffer.from(baseSvg))
     .composite([
@@ -119,6 +122,37 @@ async function frameDecoration(): Promise<Buffer> {
     ])
     .png()
     .toBuffer();
+}
+
+async function makeSchoolMark(): Promise<Buffer> {
+  try {
+    return await sharp(brandAsset("school-mark.png"))
+      .resize(148, 148, { fit: "cover", position: "center" })
+      .composite([{ input: await roundedMask(148, 148, 74), blend: "dest-in" }])
+      .png()
+      .toBuffer();
+  } catch {
+    const fallback = `<svg xmlns="http://www.w3.org/2000/svg" width="148" height="148">
+      <circle cx="74" cy="74" r="74" fill="#f8fafc"/>
+      <text x="74" y="84" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="900" fill="#050505">GSHS</text>
+    </svg>`;
+    return sharp(Buffer.from(fallback)).png().toBuffer();
+  }
+}
+
+async function makeCharacterMark(): Promise<Buffer> {
+  try {
+    return await sharp(brandAsset("keuni-deuri-hands.png"))
+      .resize({ width: 220, height: 144, fit: "inside", withoutEnlargement: true })
+      .png()
+      .toBuffer();
+  } catch {
+    const fallback = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="144">
+      <rect width="220" height="144" rx="20" fill="#f8fafc"/>
+      <text x="110" y="84" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="#050505">K-D</text>
+    </svg>`;
+    return sharp(Buffer.from(fallback)).png().toBuffer();
+  }
 }
 
 function panelPosition(index: number): { left: number; top: number } {
