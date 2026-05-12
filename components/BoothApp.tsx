@@ -612,10 +612,14 @@ export function BoothApp() {
         setBackgroundStatus("generating");
         setBackgroundProgress(8);
         setBackgroundError(null);
-        await postJson<{ backgroundUrl: string; usedFallback: boolean }>("/api/generate-background", {
-          sessionId: requireSession(),
-          selectedKeywords,
-        }, 125_000);
+        await postJson<{ backgroundUrl: string; usedFallback: boolean }>(
+          "/api/generate-background",
+          {
+            sessionId: requireSession(),
+            selectedKeywords,
+          },
+          80_000,
+        );
         if (flowRunRef.current !== runId) {
           return false;
         }
@@ -650,19 +654,21 @@ export function BoothApp() {
     if (!tagSelection) {
       return;
     }
-    const runId = activeRun();
     setSelectedPhotoIndices([]);
-    setStep("background_loading");
-    const ready = await startBackgroundGeneration(tagSelection);
-    if (!ready || flowRunRef.current !== runId) {
-      return;
-    }
     captureStartedRef.current = false;
     setCapturedPhotos([]);
     setShotIndex(1);
     setShotStatus("최종 촬영을 준비하고 있습니다");
     setCameraReady(false);
+    void startBackgroundGeneration(tagSelection);
     setStep("capture");
+  }
+
+  function retryBackgroundGeneration() {
+    if (!tagSelection) {
+      return;
+    }
+    void startBackgroundGeneration(tagSelection);
   }
 
   function togglePhoto(index: number) {
@@ -754,7 +760,7 @@ export function BoothApp() {
     const lastStep = step;
     setError(null);
     if ((lastStep === "background_loading" || lastStep === "select_photos") && tagSelection) {
-      void chooseTagsAndContinue();
+      retryBackgroundGeneration();
       return;
     }
     if (lastStep === "email") {
@@ -899,11 +905,14 @@ export function BoothApp() {
                   right={<div className="rounded-[4px] bg-[#f4f1e8] px-6 py-4 text-2xl font-black text-[#050505]">AUTO</div>}
                 />
                 <CaptureRail captured={step === "analysis_capture" ? (analysisPhoto ? [analysisPhoto] : []) : capturedPhotos} activeIndex={shotIndex} count={step === "analysis_capture" ? 1 : FINAL_CAPTURE_COUNT} />
+                {step === "capture" && backgroundStatus !== "idle" && (
+                  <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
+                )}
                 <div className="rounded-[4px] border-[3px] border-[#f4f1e8]/78 bg-[#0b0b0b] p-7">
                   <p className="safe-text text-4xl font-black leading-tight">
                     {step === "analysis_capture"
                       ? "먼저 한 장을 찍어 AI가 어울리는 배경 태그를 추천합니다."
-                      : "완성된 배경 분위기를 보고 포즈를 바꿔 보세요. 6장 중 마음에 드는 4장을 고릅니다."}
+                      : "배경 생성은 뒤에서 진행됩니다. 촬영을 먼저 끝내고 6장 중 마음에 드는 4장을 고릅니다."}
                   </p>
                 </div>
               </div>
@@ -978,7 +987,7 @@ export function BoothApp() {
                 </div>
 
                 <KioskButton onClick={() => void chooseTagsAndContinue()} className="min-h-[112px] text-4xl">
-                  태그 확정
+                  태그 확정 후 촬영
                   <ArrowRight className="h-11 w-11" />
                 </KioskButton>
               </div>
@@ -991,7 +1000,7 @@ export function BoothApp() {
                 <StepTitle
                   eyebrow="02 배경 생성"
                   title="선택한 태그로 배경을 만들고 있습니다"
-                  detail="배경이 준비되면 바로 6장 촬영으로 넘어갑니다."
+                  detail="촬영은 먼저 진행하고, 여기서는 마지막 준비가 필요할 때만 잠시 기다립니다."
                   compact
                 />
                 {tagSelection && (
@@ -1008,7 +1017,7 @@ export function BoothApp() {
                 <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
                 {backgroundStatus === "error" && (
                   <div className="grid grid-cols-2 gap-4">
-                    <KioskButton onClick={() => void chooseTagsAndContinue()} className="text-3xl">
+                    <KioskButton onClick={retryBackgroundGeneration} className="text-3xl">
                       다시 생성
                     </KioskButton>
                     <KioskButton onClick={() => setStep("tag_select")} tone="secondary" className="text-3xl">
@@ -1061,13 +1070,24 @@ export function BoothApp() {
               <div className="grid content-center gap-5">
                 <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} />
                 <BeautySelector value={beautyStrength} onChange={setBeautyStrength} />
-                <KioskButton
-                  onClick={() => void uploadSelectedPhotos()}
-                  disabled={!selectedReady || backgroundStatus !== "ready"}
-                  className="min-h-[108px] text-4xl"
-                >
-                  선택 완료
-                </KioskButton>
+                {backgroundStatus === "error" ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <KioskButton onClick={retryBackgroundGeneration} className="text-3xl">
+                      배경 다시 생성
+                    </KioskButton>
+                    <KioskButton onClick={() => setStep("tag_select")} tone="secondary" className="text-3xl">
+                      태그 수정
+                    </KioskButton>
+                  </div>
+                ) : (
+                  <KioskButton
+                    onClick={() => void uploadSelectedPhotos()}
+                    disabled={!selectedReady || backgroundStatus !== "ready"}
+                    className="min-h-[108px] text-4xl"
+                  >
+                    {backgroundStatus === "ready" ? "선택 완료" : "배경 생성 대기"}
+                  </KioskButton>
+                )}
               </div>
             </div>
           )}

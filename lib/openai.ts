@@ -40,7 +40,7 @@ function analysisTimeoutSignal(): AbortSignal {
 }
 
 function imageTimeoutSignal(): AbortSignal {
-  return AbortSignal.timeout(timeoutMs("OPENAI_IMAGE_TIMEOUT_MS", 90_000));
+  return AbortSignal.timeout(timeoutMs("OPENAI_IMAGE_TIMEOUT_MS", 75_000));
 }
 
 function extractOutputText(payload: unknown): string | undefined {
