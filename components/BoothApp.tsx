@@ -261,22 +261,24 @@ function KioskHeader({ step, onRestart }: { step: Step; onRestart: () => void })
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3" aria-label="진행 단계">
-          {STAGE_LABELS.map((label, index) => (
-            <div
-              key={label}
-              className={`flex h-10 min-w-[86px] items-center justify-center rounded-full border px-3 text-sm font-black ${
-                index === activeStage
-                  ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]"
-                  : index < activeStage
-                    ? "border-[var(--line-soft)] bg-[var(--surface)] text-[var(--text-muted)]"
-                    : "border-[var(--line-soft)] bg-transparent text-[var(--text-subtle)]"
-              }`}
-            >
-              {index + 1} {label}
-            </div>
-          ))}
-        </div>
+        {step !== "idle" && (
+          <div className="flex items-center gap-3" aria-label="진행 단계">
+            {STAGE_LABELS.map((label, index) => (
+              <div
+                key={label}
+                className={`flex h-10 min-w-[86px] items-center justify-center rounded-full border px-3 text-sm font-black ${
+                  index === activeStage
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]"
+                    : index < activeStage
+                      ? "border-[var(--line-soft)] bg-[var(--surface)] text-[var(--text-muted)]"
+                      : "border-[var(--line-soft)] bg-transparent text-[var(--text-subtle)]"
+                }`}
+              >
+                {index + 1} {label}
+              </div>
+            ))}
+          </div>
+        )}
         {step !== "idle" && step !== "complete" && (
           <button
             type="button"
@@ -761,7 +763,7 @@ export function BoothApp() {
         setStep("tag_select");
       } catch (analysisError) {
         clearCountdown();
-        setError(analysisError instanceof Error ? analysisError.message : "태그 분석에 실패했습니다");
+        setError(analysisError instanceof Error ? analysisError.message : "AI 추천을 만들지 못했습니다");
       }
     },
     [sessionId],
@@ -777,7 +779,7 @@ export function BoothApp() {
       if (flowRunRef.current !== runId) {
         return;
       }
-      setShotStatus("최종 네컷에 들어가지 않는 AI 추천용 사진입니다");
+      setShotStatus("최종 네컷에 들어가지 않는 AI 추천 사진입니다");
       await runCountdown(runId, COUNTDOWN_VALUES, "촬영", "shutter");
       if (flowRunRef.current !== runId) {
         return;
@@ -787,11 +789,11 @@ export function BoothApp() {
         throw new Error("사진을 촬영하지 못했습니다");
       }
       setAnalysisPhoto(captured);
-      setShotStatus("분석용 사진 저장 완료");
+      setShotStatus("AI 추천 사진 저장 완료");
       await analyzeFirstPhoto(captured, runId);
     } catch (captureError) {
       clearCountdown();
-      setError(captureError instanceof Error ? captureError.message : "분석용 사진 촬영에 실패했습니다");
+      setError(captureError instanceof Error ? captureError.message : "AI가 배경을 고를 사진 촬영에 실패했습니다");
     }
   }, [activeRun, analyzeFirstPhoto]);
 
@@ -987,7 +989,7 @@ export function BoothApp() {
       }
       if (backgroundStatus !== "ready") {
         if (backgroundStatus === "error") {
-          throw new Error("배경 생성에 실패했습니다. 다시 생성하거나 태그를 수정해 주세요.");
+          throw new Error("배경 생성에 실패했습니다. 다시 생성하거나 추천 배경을 다시 골라 주세요.");
         }
         setPendingUploadAfterBackground(true);
         setStep("background_loading");
@@ -1300,11 +1302,11 @@ export function BoothApp() {
                 <StepTitle
                   eyebrow={step === "analysis_capture" ? "01 AI 추천 사진" : "03 미션 촬영"}
                   title={step === "analysis_capture" ? "크게 포즈를 보여 주세요" : `${shotIndex}/${FINAL_CAPTURE_COUNT} 컷`}
-                  detail={step === "analysis_capture" ? "최종 네컷에는 들어가지 않는 추천용 사진입니다." : "이번 컷 미션"}
+                  detail={step === "analysis_capture" ? "최종 네컷에는 들어가지 않는 AI 추천 사진입니다." : "이번 컷 미션"}
                   compact
                   right={<div className="rounded-[6px] bg-[var(--primary)] px-6 py-4 text-2xl font-black text-[var(--primary-text)]">AUTO</div>}
                 />
-                <CaptureRail captured={step === "analysis_capture" ? (analysisPhoto ? [analysisPhoto] : []) : capturedPhotos} activeIndex={shotIndex} count={step === "analysis_capture" ? 1 : FINAL_CAPTURE_COUNT} />
+                {step === "capture" && <CaptureRail captured={capturedPhotos} activeIndex={shotIndex} count={FINAL_CAPTURE_COUNT} />}
                 {step === "capture" && backgroundStatus !== "idle" && (
                   <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} compact />
                 )}
@@ -1331,12 +1333,12 @@ export function BoothApp() {
               <div className="grid content-center gap-5">
                 <div className="overflow-hidden rounded-[6px] border border-[var(--line)] bg-[var(--surface)] p-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={analysisPhoto ?? capturedPhotos[0]} alt="태그 기준 사진" className="aspect-[3/4] w-full object-cover" />
+                  <img src={analysisPhoto ?? capturedPhotos[0]} alt="AI 추천 기준 사진" className="aspect-[3/4] w-full object-cover" />
                 </div>
                 <div className="rounded-[6px] bg-[var(--surface)] p-5 text-center">
                   <p className="text-xl font-black text-[var(--primary)]">AI가 포즈를 분석했어요</p>
                   <p className="mt-2 safe-text text-2xl font-black text-[var(--text-muted)]">
-                    추천 배경을 고르거나 원하는 느낌만 바꿔 주세요.
+                    오늘 어울리는 배경 세계관을 골라 주세요.
                   </p>
                 </div>
               </div>
@@ -1345,7 +1347,7 @@ export function BoothApp() {
                 <StepTitle
                   eyebrow="02 AI 추천"
                   title="추천 배경을 골라 주세요"
-                  detail="카드 하나를 고르면 AI가 그 분위기로 배경을 만듭니다."
+                  detail="카드 하나를 고르면 바로 그 분위기로 촬영을 시작합니다."
                   compact
                 />
 
@@ -1358,18 +1360,18 @@ export function BoothApp() {
                         key={`${preset.theme}-${preset.mood}-${preset.color}-${preset.effect}`}
                         type="button"
                         onClick={() => setTagSelection(preset)}
-                        className={`grid min-h-[180px] content-between rounded-[8px] border-2 p-5 text-left active:translate-y-[2px] ${
+                        className={`grid min-h-[320px] content-between rounded-[8px] border-2 p-7 text-left active:translate-y-[2px] ${
                           active
                             ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]"
                             : "border-[var(--line-soft)] bg-[var(--surface)] text-[var(--text)]"
                         }`}
                       >
-                        <div className="grid gap-3">
+                        <div className="grid gap-5">
                           <p className={`text-lg font-black tracking-[0.16em] ${active ? "text-[#050505]/60" : "text-[var(--text-subtle)]"}`}>
                             AI PICK {presetIndex + 1}
                           </p>
-                          <h3 className="safe-text text-2xl font-black leading-tight">{conceptTitle(preset)}</h3>
-                          <p className={`safe-text text-lg font-black leading-snug ${active ? "text-[#050505]/70" : "text-[var(--text-muted)]"}`}>
+                          <h3 className="safe-text text-4xl font-black leading-tight">{conceptTitle(preset)}</h3>
+                          <p className={`safe-text text-2xl font-black leading-snug ${active ? "text-[#050505]/70" : "text-[var(--text-muted)]"}`}>
                             {conceptStory(preset)}
                           </p>
                         </div>
@@ -1388,49 +1390,6 @@ export function BoothApp() {
                       </button>
                     );
                   })}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {CATEGORIES.map((category) => (
-                    <div
-                      key={category}
-                      className="grid gap-3 rounded-[6px] bg-[var(--surface)] p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black tracking-[0.14em] text-[var(--text-subtle)]">배경 특징</p>
-                          <h3 className="text-2xl font-black text-[var(--text)]">{CATEGORY_LABELS[category]}</h3>
-                        </div>
-                        <p className="safe-text rounded-[4px] bg-[var(--primary)] px-3 py-2 text-base font-black text-[var(--primary-text)]">
-                          {tagSelection[category]}
-                        </p>
-                      </div>
-                      <div
-                        className="grid gap-2"
-                        style={{
-                          gridTemplateColumns: `repeat(${Math.min(analysis.recommended_keywords[category].length, 4)}, minmax(0, 1fr))`,
-                        }}
-                      >
-                        {analysis.recommended_keywords[category].map((keyword) => {
-                          const active = tagSelection[category] === keyword;
-                          return (
-                            <button
-                              key={keyword}
-                              type="button"
-                              onClick={() => setTagSelection((current) => current && { ...current, [category]: keyword })}
-                              className={`min-h-[50px] rounded-[6px] border px-3 text-lg font-black active:translate-y-[2px] ${
-                                active
-                                  ? "border-[var(--line-strong)] bg-[var(--text)] text-[var(--primary-text)]"
-                                  : "border-[var(--line-soft)] bg-transparent text-[var(--text-muted)]"
-                              }`}
-                            >
-                              {keyword}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
                 </div>
 
                 <KioskButton onClick={() => void chooseTagsAndContinue()} className="min-h-[96px] text-3xl">
@@ -1630,6 +1589,11 @@ export function BoothApp() {
                   <p className="safe-text text-2xl font-black text-[var(--text-muted)]">
                     {conceptStory(tagSelection)} AI가 과학축제 네컷 분위기로 완성했습니다.
                   </p>
+                  {analysis?.ui_caption && (
+                    <p className="safe-text rounded-[6px] bg-[#050505]/50 px-5 py-4 text-xl font-black text-[var(--text-muted)]">
+                      AI 한줄평 · {analysis.ui_caption}
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-5">
                   <KioskButton onClick={() => setStep("email")} className="min-h-[128px] text-5xl">
