@@ -48,6 +48,7 @@ const CATEGORY_LABELS: Record<KeywordCategory, string> = {
   effect: "장식",
 };
 const EVENT_TITLE = "2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌";
+const BOOTH_NAME = "AI와 함께하는 수과정페 네컷";
 const CLUB_NAME = "이음(IEUM)";
 const CLUB_SLOGAN = "- 기술로 사람과 사람을 잇다";
 const STAGE_LABELS = ["시작", "AI추천", "촬영", "선택", "받기"];
@@ -134,7 +135,7 @@ function presetKeywords(analysis: PoseAnalysis, index: number): SelectedKeywords
 
 function conceptTitle(selection: SelectedKeywords | null): string {
   if (!selection) {
-    return "AI 네컷";
+    return BOOTH_NAME;
   }
   return `${selection.color} ${selection.effect} ${selection.theme}`;
 }
@@ -1117,14 +1118,14 @@ export function BoothApp() {
                     <p className="text-2xl font-black tracking-[0.2em] text-[var(--primary)]">{CLUB_NAME}</p>
                     <p className="safe-text text-2xl font-black text-[var(--text-muted)]">{CLUB_SLOGAN}</p>
                   </div>
-                  <h1 className="safe-text text-[72px] font-black leading-[1.02]">AI 네컷</h1>
+                  <h1 className="safe-text text-[72px] font-black leading-[1.02]">{BOOTH_NAME}</h1>
                   <p className="safe-text max-w-[820px] text-3xl font-black leading-[1.25] text-[var(--text-muted)]">
                     포즈를 취하면 AI가 어울리는 배경을 만들어줘요.
                   </p>
                 </div>
 
                 <KioskButton onClick={() => setStep("consent")} className="min-h-[128px] text-5xl">
-                  AI 네컷 시작하기
+                  시작하기
                 </KioskButton>
                 <div className="grid grid-cols-4 gap-3">
                   {["포즈 분석", "AI 배경 추천", "네컷 촬영", "메일 받기"].map((label, index) => (
