@@ -133,6 +133,14 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
   const keyClass = `flex items-center justify-center rounded-[6px] border border-[var(--line)] bg-[var(--surface)] px-3 font-black text-[var(--text)] active:translate-y-[2px] disabled:opacity-45 ${
     isLandscape ? "min-h-[54px] text-xl" : "min-h-[74px] text-2xl"
   }`;
+  const inputBoxClass = (active: boolean) =>
+    `h-16 min-w-0 rounded-[6px] border-[3px] px-4 text-left text-3xl font-black active:translate-y-[2px] ${
+      active
+        ? "border-[var(--primary)] bg-[rgba(94,234,212,0.10)] shadow-[inset_0_0_0_1px_rgba(94,234,212,0.22),0_0_24px_rgba(94,234,212,0.10)]"
+        : "border-[var(--line-soft)] bg-[var(--surface-2)]"
+    }`;
+  const inputTextClass = (active: boolean, hasValue: boolean) =>
+    active ? (hasValue ? "text-[var(--text)]" : "text-[var(--text-subtle)]") : hasValue ? "text-[var(--text-muted)]" : "text-[var(--text-subtle)]";
   const symbolKeys = inputMode === "domain" ? DOMAIN_SYMBOL_KEYS : LOCAL_SYMBOL_KEYS;
 
   return (
@@ -142,15 +150,9 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
           <button
             type="button"
             onClick={() => setInputMode("local")}
-            className={`h-16 min-w-0 rounded-[6px] border-[3px] px-4 text-left text-3xl font-black ${
-              inputMode === "local" ? "border-[var(--primary)] bg-[#f4f1e8]" : "border-[var(--line-soft)] bg-[var(--surface-2)]"
-            }`}
+            className={inputBoxClass(inputMode === "local")}
           >
-            <span
-              className={`safe-text block truncate ${
-                inputMode === "local" ? (localPart ? "text-[#050505]" : "text-[#050505]/42") : "text-[var(--text-muted)]"
-              }`}
-            >
+            <span className={`safe-text block truncate ${inputTextClass(inputMode === "local", Boolean(localPart))}`}>
               {localPart || "아이디"}
             </span>
           </button>
@@ -162,11 +164,9 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
                 setInputMode("domain");
               }
             }}
-            className={`h-16 min-w-0 rounded-[6px] border-[3px] px-4 text-left text-3xl font-black ${
-              inputMode === "domain" ? "border-[var(--primary)] bg-[#f4f1e8]" : "border-[var(--line-soft)] bg-[var(--surface-2)]"
-            }`}
+            className={inputBoxClass(inputMode === "domain")}
           >
-            <span className={`safe-text block truncate ${inputMode === "domain" ? "text-[#050505]" : "text-[var(--text)]"}`}>
+            <span className={`safe-text block truncate ${inputTextClass(inputMode === "domain", Boolean(domain))}`}>
               {domain || "도메인"}
             </span>
           </button>
@@ -194,7 +194,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               type="button"
               onClick={() => chooseDomain(option)}
               className={`min-h-[58px] rounded-[6px] border-[3px] px-2 text-xl font-black active:translate-y-[2px] ${
-                active ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]" : "border-[var(--line)] bg-transparent text-[var(--text)]"
+                active ? "border-[var(--primary)] bg-[rgba(94,234,212,0.12)] text-[var(--primary)]" : "border-[var(--line)] bg-transparent text-[var(--text)]"
               }`}
             >
               {option}
@@ -205,7 +205,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
           type="button"
           onClick={chooseCustomDomain}
           className={`min-h-[58px] rounded-[6px] border-[3px] px-2 text-xl font-black active:translate-y-[2px] ${
-            domainMode === "custom" ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]" : "border-[var(--line)] bg-transparent text-[var(--text)]"
+            domainMode === "custom" ? "border-[var(--primary)] bg-[rgba(94,234,212,0.12)] text-[var(--primary)]" : "border-[var(--line)] bg-transparent text-[var(--text)]"
           }`}
         >
           직접 입력
