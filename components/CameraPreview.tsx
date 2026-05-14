@@ -18,12 +18,11 @@ interface CameraPreviewProps {
 export function CameraGuideOverlay() {
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-      <div className="absolute inset-6 rounded-[4px] border border-white/28" />
-      <div className="absolute left-1/2 top-[17%] h-[22%] w-[34%] -translate-x-1/2 rounded-[50%] border-2 border-[#5eead4]/80 shadow-[0_0_28px_rgba(94,234,212,0.18)]" />
-      <div className="absolute left-1/2 top-[43%] h-[31%] w-[68%] -translate-x-1/2 rounded-t-[999px] border-2 border-b-0 border-white/36" />
-      <div className="absolute left-1/2 top-[27%] h-3 w-3 -translate-x-1/2 rounded-full bg-[#5eead4]" />
-      <div className="absolute left-[18%] right-[18%] top-[40%] border-t border-dashed border-white/26" />
-      <div className="absolute left-1/2 top-[14%] h-[63%] w-px -translate-x-1/2 bg-white/12" />
+      <div className="absolute inset-6 rounded-[4px] border border-white/22" />
+      <div className="absolute left-6 top-6 h-16 w-16 border-l-4 border-t-4 border-[#5eead4]/86" />
+      <div className="absolute right-6 top-6 h-16 w-16 border-r-4 border-t-4 border-[#5eead4]/86" />
+      <div className="absolute bottom-6 left-6 h-16 w-16 border-b-4 border-l-4 border-[#5eead4]/86" />
+      <div className="absolute bottom-6 right-6 h-16 w-16 border-b-4 border-r-4 border-[#5eead4]/86" />
     </div>
   );
 }
