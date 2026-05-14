@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Delete, Mail, Send, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Delete, Mail, Send, X } from "lucide-react";
 
 interface EmailFormProps {
   disabled?: boolean;
@@ -38,6 +38,8 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
   const [customDomain, setCustomDomain] = useState("");
   const [domainMode, setDomainMode] = useState<DomainMode>("preset");
   const [inputMode, setInputMode] = useState<InputMode>("local");
+  const [localCursor, setLocalCursor] = useState(0);
+  const [domainCursor, setDomainCursor] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -56,10 +58,18 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     setConfirming(false);
     if (inputMode === "domain") {
       setDomainMode("custom");
-      setCustomDomain((current) => `${current}${value}`.slice(0, 120));
+      setCustomDomain((current) => {
+        const next = (current.slice(0, domainCursor) + value + current.slice(domainCursor)).slice(0, 120);
+        return next;
+      });
+      setDomainCursor((c) => Math.min(c + value.length, 120));
       return;
     }
-    setLocalPart((current) => `${current}${value}`.slice(0, 120));
+    setLocalPart((current) => {
+      const next = (current.slice(0, localCursor) + value + current.slice(localCursor)).slice(0, 120);
+      return next;
+    });
+    setLocalCursor((c) => Math.min(c + value.length, 120));
   }
 
   function backspace() {
@@ -68,10 +78,26 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     }
     setConfirming(false);
     if (inputMode === "domain") {
-      setCustomDomain((current) => current.slice(0, -1));
+      if (domainCursor === 0) {
+        return;
+      }
+      setCustomDomain((current) => current.slice(0, domainCursor - 1) + current.slice(domainCursor));
+      setDomainCursor((c) => Math.max(0, c - 1));
       return;
     }
-    setLocalPart((current) => current.slice(0, -1));
+    if (localCursor === 0) {
+      return;
+    }
+    setLocalPart((current) => current.slice(0, localCursor - 1) + current.slice(localCursor));
+    setLocalCursor((c) => Math.max(0, c - 1));
+  }
+
+  function moveCursor(dir: -1 | 1) {
+    if (inputMode === "domain") {
+      setDomainCursor((c) => Math.max(0, Math.min(customDomain.length, c + dir)));
+      return;
+    }
+    setLocalCursor((c) => Math.max(0, Math.min(localPart.length, c + dir)));
   }
 
   function clearAll() {
@@ -81,6 +107,8 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     setDomainMode("preset");
     setPresetDomain(DOMAIN_OPTIONS[0]);
     setInputMode("local");
+    setLocalCursor(0);
+    setDomainCursor(0);
   }
 
   function chooseDomain(value: string) {
@@ -91,6 +119,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     setPresetDomain(value);
     setDomainMode("preset");
     setInputMode("local");
+    setLocalCursor(localPart.length);
   }
 
   function chooseCustomDomain() {
@@ -100,6 +129,7 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     setConfirming(false);
     setDomainMode("custom");
     setInputMode("domain");
+    setDomainCursor(customDomain.length);
   }
 
   async function submit() {
@@ -130,6 +160,22 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
     }
   }
 
+  function renderInputText(value: string, cursor: number, active: boolean, placeholder: string) {
+    const textClass = inputTextClass(active, Boolean(value));
+    if (!active || !value) {
+      return <span className={`safe-text block truncate ${textClass}`}>{value || placeholder}</span>;
+    }
+    const before = value.slice(0, cursor);
+    const after = value.slice(cursor);
+    return (
+      <span className={`safe-text block truncate ${textClass}`}>
+        {before}
+        <span className="animate-pulse text-[var(--primary)]">|</span>
+        {after}
+      </span>
+    );
+  }
+
   const keyClass = `flex items-center justify-center rounded-[6px] border border-[var(--line)] bg-[var(--surface)] px-3 font-black text-[var(--text)] active:translate-y-[2px] disabled:opacity-45 ${
     isLandscape ? "min-h-[54px] text-xl" : "min-h-[74px] text-2xl"
   }`;
@@ -149,12 +195,10 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-3">
           <button
             type="button"
-            onClick={() => setInputMode("local")}
+            onClick={() => { setInputMode("local"); setLocalCursor(localPart.length); }}
             className={inputBoxClass(inputMode === "local")}
           >
-            <span className={`safe-text block truncate ${inputTextClass(inputMode === "local", Boolean(localPart))}`}>
-              {localPart || "아이디"}
-            </span>
+            {renderInputText(localPart, localCursor, inputMode === "local", "아이디")}
           </button>
           <span className="text-4xl font-black text-[var(--primary)]">@</span>
           <button
@@ -162,13 +206,12 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
             onClick={() => {
               if (domainMode === "custom") {
                 setInputMode("domain");
+                setDomainCursor(customDomain.length);
               }
             }}
             className={inputBoxClass(inputMode === "domain")}
           >
-            <span className={`safe-text block truncate ${inputTextClass(inputMode === "domain", Boolean(domain))}`}>
-              {domain || "도메인"}
-            </span>
+            {renderInputText(domainMode === "custom" ? customDomain : presetDomain, domainCursor, inputMode === "domain", "도메인")}
           </button>
           <button
             type="button"
@@ -242,15 +285,21 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
           </div>
         ))}
 
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-8 gap-2">
           {symbolKeys.map((key) => (
             <button key={key} type="button" className={keyClass} onClick={() => append(key)}>
               {key}
             </button>
           ))}
+          <button type="button" className={keyClass} onClick={() => moveCursor(-1)}>
+            <ChevronLeft className="h-7 w-7" />
+          </button>
+          <button type="button" className={keyClass} onClick={() => moveCursor(1)}>
+            <ChevronRight className="h-7 w-7" />
+          </button>
           <button
             type="button"
-            className={`${keyClass} ${symbolKeys.length === 2 ? "col-span-4" : "col-span-3"}`}
+            className={`${keyClass} ${symbolKeys.length === 2 ? "col-span-3" : "col-span-2"}`}
             onClick={backspace}
           >
             <Delete className="h-7 w-7" />
