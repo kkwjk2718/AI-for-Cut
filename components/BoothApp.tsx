@@ -134,7 +134,7 @@ function presetKeywords(analysis: PoseAnalysis, index: number): SelectedKeywords
 
 function conceptTitle(selection: SelectedKeywords | null): string {
   if (!selection) {
-    return "AI 과학 네컷";
+    return "AI 네컷";
   }
   return `${selection.color} ${selection.effect} ${selection.theme}`;
 }
@@ -1117,9 +1117,9 @@ export function BoothApp() {
                     <p className="text-2xl font-black tracking-[0.2em] text-[var(--primary)]">{CLUB_NAME}</p>
                     <p className="safe-text text-2xl font-black text-[var(--text-muted)]">{CLUB_SLOGAN}</p>
                   </div>
-                  <h1 className="safe-text text-[72px] font-black leading-[1.02]">AI 과학 네컷</h1>
+                  <h1 className="safe-text text-[72px] font-black leading-[1.02]">AI 네컷</h1>
                   <p className="safe-text max-w-[820px] text-3xl font-black leading-[1.25] text-[var(--text-muted)]">
-                    포즈를 취하면 AI가 어울리는 과학 배경을 만들어줘요.
+                    포즈를 취하면 AI가 어울리는 배경을 만들어줘요.
                   </p>
                 </div>
 
