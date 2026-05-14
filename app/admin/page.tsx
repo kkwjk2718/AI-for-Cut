@@ -120,7 +120,7 @@ export default async function AdminPage() {
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-white/10 bg-white/[0.06] p-5">
           <div className="grid gap-2">
             <p className="text-base font-black tracking-[0.22em] text-[#5eead4]">ADMIN</p>
-            <h1 className="safe-text text-4xl font-black">AI 네컷 관리자</h1>
+            <h1 className="safe-text text-4xl font-black">수과정페 네컷 관리자</h1>
           </div>
           <div className="flex gap-3">
             <a

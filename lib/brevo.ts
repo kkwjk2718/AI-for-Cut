@@ -17,6 +17,7 @@ function isProduction(): boolean {
 }
 
 const EVENT_TITLE = "2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌";
+const BOOTH_NAME = "AI와 함께하는 수과정페 네컷";
 const CLUB_NAME = "이음(IEUM)";
 
 export function isBrevoConfigured(): boolean {
@@ -52,9 +53,9 @@ export async function sendPhotoEmail({
         name: senderName,
       },
       to: [{ email: to }],
-      subject: `[${EVENT_TITLE}] AI 네컷사진을 보냅니다`,
+      subject: `[${EVENT_TITLE}] ${BOOTH_NAME} 사진을 보냅니다`,
       htmlContent:
-        `<p>${EVENT_TITLE} AI 네컷 포토부스를 이용해 주셔서 감사합니다.</p><p>${CLUB_NAME}이 완성된 이미지를 첨부했습니다.</p>`,
+        `<p>${EVENT_TITLE} ${BOOTH_NAME} 부스를 이용해 주셔서 감사합니다.</p><p>${CLUB_NAME}이 완성된 이미지를 첨부했습니다.</p>`,
       attachment: [
         {
           content: image.toString("base64"),

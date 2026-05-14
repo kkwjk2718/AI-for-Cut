@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 기여 가이드
+    url: https://github.com/kkwjk2718/AI-for-Cut/blob/main/CONTRIBUTING.md
+    about: 개발 환경 설정과 PR 규칙을 확인합니다.
