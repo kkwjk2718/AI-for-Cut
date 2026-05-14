@@ -15,6 +15,19 @@ interface CameraPreviewProps {
   variant?: "default" | "kiosk";
 }
 
+export function CameraGuideOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="absolute inset-6 rounded-[4px] border border-white/28" />
+      <div className="absolute left-1/2 top-[17%] h-[22%] w-[34%] -translate-x-1/2 rounded-[50%] border-2 border-[#5eead4]/80 shadow-[0_0_28px_rgba(94,234,212,0.18)]" />
+      <div className="absolute left-1/2 top-[43%] h-[31%] w-[68%] -translate-x-1/2 rounded-t-[999px] border-2 border-b-0 border-white/36" />
+      <div className="absolute left-1/2 top-[27%] h-3 w-3 -translate-x-1/2 rounded-full bg-[#5eead4]" />
+      <div className="absolute left-[18%] right-[18%] top-[40%] border-t border-dashed border-white/26" />
+      <div className="absolute left-1/2 top-[14%] h-[63%] w-px -translate-x-1/2 bg-white/12" />
+    </div>
+  );
+}
+
 export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>(
   function CameraPreview({ active, children, muted = true, onReadyChange, variant = "default" }, ref) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -122,13 +135,7 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
           muted={muted}
           aria-label="카메라 미리보기"
         />
-        {ready && variant === "kiosk" && (
-          <>
-            <div className="pointer-events-none absolute inset-6 rounded-[4px] border-2 border-white/70" />
-            <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/18" />
-            <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/18" />
-          </>
-        )}
+        {ready && variant === "kiosk" && <CameraGuideOverlay />}
         {children}
         {!ready && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#111827] text-white">

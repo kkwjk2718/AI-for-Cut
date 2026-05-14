@@ -13,7 +13,7 @@ import {
   Tags,
   Wand2,
 } from "lucide-react";
-import { CameraPreview, type CameraPreviewHandle } from "./CameraPreview";
+import { CameraGuideOverlay, CameraPreview, type CameraPreviewHandle } from "./CameraPreview";
 import { Countdown } from "./Countdown";
 import { EmailForm } from "./EmailForm";
 import { applyBeautyFilter, BEAUTY_OPTIONS, type BeautyStrength } from "@/lib/client-beauty";
@@ -559,6 +559,7 @@ export function BoothApp() {
   const [beautyStrength, setBeautyStrength] = useState<BeautyStrength>(2);
   const [requiredConsentAccepted, setRequiredConsentAccepted] = useState(false);
   const [archiveImageConsent, setArchiveImageConsent] = useState(false);
+  const [archiveConsentExpanded, setArchiveConsentExpanded] = useState(false);
   const [backgroundStatus, setBackgroundStatus] = useState<BackgroundStatus>("idle");
   const [backgroundProgress, setBackgroundProgress] = useState(0);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
@@ -666,6 +667,7 @@ export function BoothApp() {
       setBackgroundProgress(0);
       setBackgroundError(null);
       setPendingUploadAfterBackground(false);
+      setArchiveConsentExpanded(false);
       setUploadStatus("");
       setShotIndex(1);
       setShotStatus("카메라를 준비하고 있습니다");
@@ -702,6 +704,7 @@ export function BoothApp() {
     setTagSelection(null);
     setRequiredConsentAccepted(false);
     setArchiveImageConsent(false);
+    setArchiveConsentExpanded(false);
     setBackgroundStatus("idle");
     setBackgroundProgress(0);
     setBackgroundError(null);
@@ -1197,34 +1200,41 @@ export function BoothApp() {
                   </p>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setArchiveImageConsent((value) => !value)}
-                  className={`grid gap-3 rounded-[6px] border p-5 text-left active:translate-y-[2px] ${
-                    archiveImageConsent
-                      ? "border-[var(--line-strong)] bg-[var(--text)] text-[var(--primary-text)]"
-                      : "border-[var(--line-soft)] bg-[var(--surface)] text-[var(--text)]"
-                  }`}
-                >
-                  <div className="flex items-start gap-5">
-                    <span
-                      className={`mt-1 grid h-14 w-14 shrink-0 place-items-center rounded-[6px] border-2 ${
-                        archiveImageConsent ? "border-[#050505] bg-[#050505] text-[var(--text)]" : "border-[var(--line)] bg-transparent"
-                      }`}
+                <div className="grid gap-3 rounded-[6px] border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+                  <div className="grid grid-cols-[1fr_180px] items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setArchiveImageConsent((value) => !value)}
+                      className="flex min-h-[76px] items-center gap-4 rounded-[6px] text-left active:translate-y-[2px]"
                     >
-                      {archiveImageConsent && <Check className="h-9 w-9" />}
-                    </span>
-                    <div className="grid gap-2">
-                      <p className="text-2xl font-black tracking-[0.16em] opacity-70">선택</p>
-                      <h3 className="safe-text text-3xl font-black leading-tight">
-                        행사 홍보 및 결과 전시를 위해 완성 사진 저장에 동의합니다.
-                      </h3>
-                    </div>
+                      <span
+                        className={`grid h-14 w-14 shrink-0 place-items-center rounded-[6px] border-2 ${
+                          archiveImageConsent ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]" : "border-[var(--line)] bg-transparent text-transparent"
+                        }`}
+                      >
+                        <Check className="h-8 w-8" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-lg font-black tracking-[0.16em] text-[var(--text-subtle)]">선택 동의</p>
+                        <h3 className="safe-text truncate text-2xl font-black text-[var(--text)]">
+                          행사 홍보 및 결과 전시를 위한 완성 사진 저장
+                        </h3>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setArchiveConsentExpanded((value) => !value)}
+                      className="min-h-[64px] rounded-[6px] border border-[var(--line-soft)] bg-[#050505]/24 px-4 text-xl font-black text-[var(--text-muted)] active:translate-y-[2px]"
+                    >
+                      {archiveConsentExpanded ? "접기" : "자세히"}
+                    </button>
                   </div>
-                  <p className={`safe-text text-xl font-bold leading-7 ${archiveImageConsent ? "text-[#050505]/68" : "text-[#f4f1e8]/58"}`}>
-                    선택하지 않아도 촬영과 이메일 발송은 가능합니다.
-                  </p>
-                </button>
+                  {archiveConsentExpanded && (
+                    <p className="safe-text rounded-[4px] bg-[#050505]/30 px-5 py-4 text-xl font-bold leading-7 text-[var(--text-muted)]">
+                      완성 사진을 행사 홍보와 결과 전시 용도로 보관하는 선택 항목입니다. 선택하지 않아도 촬영과 이메일 발송은 가능합니다.
+                    </p>
+                  )}
+                </div>
 
               <div className="grid grid-cols-[1fr_360px] gap-5">
                 <KioskButton onClick={() => void start()} disabled={!requiredConsentAccepted} className="min-h-[100px] text-5xl">
@@ -1281,7 +1291,7 @@ export function BoothApp() {
                         alt="촬영 미리보기"
                         className="h-full w-full rounded-[4px] object-cover"
                       />
-                      <div className="pointer-events-none absolute inset-8 border border-[#f4f1e8]/50" />
+                      <CameraGuideOverlay />
                     </div>
                   ) : (
                     <CameraPreview
