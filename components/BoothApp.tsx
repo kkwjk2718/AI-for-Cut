@@ -1270,11 +1270,10 @@ export function BoothApp() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 rounded-[6px] bg-[var(--surface)] p-4">
+                <div className="grid grid-cols-2 gap-3 rounded-[6px] bg-[var(--surface)] p-4">
                   {[
                     ["외부 서비스", "OpenAI API, Brevo 이메일 API"],
                     ["동의 거부 시", "이메일 발송형 촬영 서비스 이용 불가"],
-                    ["만 14세 미만", "보호자 또는 인솔자 동의 필요"],
                   ].map(([label, value]) => (
                     <div key={label} className="grid gap-1 rounded-[4px] border border-[var(--line-soft)] px-4 py-3">
                       <p className="text-lg font-black text-[var(--text-subtle)]">{label}</p>
