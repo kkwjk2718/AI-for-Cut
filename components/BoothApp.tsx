@@ -186,7 +186,7 @@ const DEMO_ANALYSIS: PoseAnalysis = {
   pose_summary: "정면을 바라보며 미래 연구소를 발견한 듯한 포즈",
   ui_caption: "차분하지만 미래적인 연구자 느낌이에요.",
   recommended_keywords: {
-    theme: ["과학", "미래도시", "우주", "수학", "AI", "바다"],
+    theme: ["우주", "심해기지", "크리스탈동굴", "정글", "사이버거리", "도서관"],
     mood: ["미래적인", "지적인", "신비로운", "역동적인"],
     color: ["초록", "검정", "네온", "흰색"],
     effect: ["홀로그램", "빛줄기", "별빛", "수식"],
@@ -194,7 +194,7 @@ const DEMO_ANALYSIS: PoseAnalysis = {
 };
 
 const DEMO_SELECTION: SelectedKeywords = {
-  theme: "과학",
+  theme: "우주",
   mood: "미래적인",
   color: "초록",
   effect: "홀로그램",

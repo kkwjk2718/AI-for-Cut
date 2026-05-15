@@ -14,20 +14,31 @@ export const RECOMMENDED_KEYWORD_COUNTS: Record<KeywordCategory, number> = {
   effect: 4,
 };
 
-export const POPULAR_THEME_KEYWORDS = ["우주", "바다"] as const;
-
 export const ALLOWED_KEYWORDS: KeywordSet = {
   theme: [
     "기본",
     "우주",
     "동굴",
+    "크리스탈동굴",
     "바다",
+    "심해기지",
     "숲",
+    "정글",
     "도시",
+    "사이버거리",
     "별하늘",
     "교실",
+    "도서관",
+    "박물관",
     "무대",
+    "게임월드",
     "로켓",
+    "사막행성",
+    "얼음왕국",
+    "구름섬",
+    "빛터널",
+    "고대유적",
+    "마법연구실",
     "과학",
     "AI",
     "로봇",
@@ -83,11 +94,66 @@ export const ALLOWED_KEYWORDS: KeywordSet = {
   ],
 };
 
+const FALLBACK_THEME_KEYWORDS = ["우주", "심해기지", "크리스탈동굴", "정글", "사이버거리", "도서관"] as const;
+
+const THEME_DIVERSITY_GROUPS = [
+  ["우주", "별하늘", "천체관측", "천문대", "로켓", "사막행성"],
+  ["바다", "심해", "심해기지"],
+  ["동굴", "크리스탈동굴", "고대유적", "마법연구실"],
+  ["숲", "정글", "구름섬", "얼음왕국"],
+  ["도시", "미래도시", "사이버거리", "무대", "게임월드", "빛터널"],
+  ["교실", "수학 교실", "실험실", "도서관", "박물관"],
+  ["과학", "AI", "로봇", "화학", "DNA", "공학", "과학축제"],
+] as const;
+
+function themeGroupIndex(keyword: string): number {
+  const groupIndex = THEME_DIVERSITY_GROUPS.findIndex((group) =>
+    (group as readonly string[]).includes(keyword),
+  );
+  return groupIndex === -1 ? Number.MAX_SAFE_INTEGER : groupIndex;
+}
+
+function uniqueAllowed(values: string[], allowed: readonly string[]): string[] {
+  return values
+    .filter((value) => allowed.includes(value))
+    .filter((value, index, array) => array.indexOf(value) === index);
+}
+
+function diversifyThemes(values: string[], limit: number): string[] {
+  const allowed = ALLOWED_KEYWORDS.theme;
+  const candidates = uniqueAllowed(values, allowed);
+  const selected: string[] = [];
+  const usedGroups = new Set<number>();
+
+  for (const keyword of candidates) {
+    const group = themeGroupIndex(keyword);
+    if (usedGroups.has(group)) {
+      continue;
+    }
+    selected.push(keyword);
+    usedGroups.add(group);
+    if (selected.length === limit) {
+      return selected;
+    }
+  }
+
+  for (const keyword of candidates) {
+    if (!selected.includes(keyword)) {
+      selected.push(keyword);
+    }
+    if (selected.length === limit) {
+      return selected;
+    }
+  }
+
+  return selected;
+}
+
 export const FALLBACK_ANALYSIS: PoseAnalysis = {
   people_count: 1,
   pose_summary: "밝고 즐거운 포즈",
   recommended_keywords: {
-    theme: ALLOWED_KEYWORDS.theme.slice(0, RECOMMENDED_KEYWORD_COUNTS.theme),
+    theme: [...FALLBACK_THEME_KEYWORDS],
     mood: ALLOWED_KEYWORDS.mood.slice(0, RECOMMENDED_KEYWORD_COUNTS.mood),
     color: ALLOWED_KEYWORDS.color.slice(0, RECOMMENDED_KEYWORD_COUNTS.color),
     effect: ALLOWED_KEYWORDS.effect.slice(0, RECOMMENDED_KEYWORD_COUNTS.effect),
@@ -117,15 +183,15 @@ export function normalizeAnalysis(input: unknown): PoseAnalysis {
       const values = Array.isArray(rawValues) ? rawValues : [];
       const allowed = ALLOWED_KEYWORDS[category];
       const limit = RECOMMENDED_KEYWORD_COUNTS[category];
-      const aiLimit = category === "theme" ? 4 : limit;
       const clean = values
         .filter((value): value is string => typeof value === "string")
         .filter((value) => allowed.includes(value))
-        .slice(0, aiLimit);
-      const popular = category === "theme" ? [...POPULAR_THEME_KEYWORDS] : [];
-      const merged = [...clean, ...popular, ...allowed].filter(
-        (value, index, array) => array.indexOf(value) === index,
-      );
+        .slice(0, limit);
+      const fill = category === "theme" ? [...FALLBACK_THEME_KEYWORDS, ...allowed] : allowed;
+      const merged =
+        category === "theme"
+          ? diversifyThemes([...clean, ...fill], limit)
+          : [...clean, ...fill].filter((value, index, array) => array.indexOf(value) === index);
 
       acc[category] = merged.slice(0, limit);
       return acc;
