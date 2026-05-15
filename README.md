@@ -103,7 +103,7 @@ npm run cleanup-temp
 - 세션 상태 업데이트는 세션별 lock으로 순차 처리합니다.
 - 초록 크로마키 배경을 우선 제거하고, 크로마키가 충분히 감지되지 않을 때만 MediaPipe 인물 분리로 fallback합니다.
 - MediaPipe 런타임 파일은 `public/vendor/mediapipe/selfie_segmentation`에서 로컬로 제공합니다.
-- 얼굴 보정은 Banuba Face AR SDK asset을 `public/vendor/banuba`에서 로컬로 불러오며, 토큰이 없거나 로딩에 실패하면 기존 MediaPipe FaceMesh 기반 보정으로 fallback합니다.
+- 얼굴 보정은 Banuba Face AR SDK asset을 `public/vendor/banuba`에서 로컬로 불러오며, 토큰이 없거나 로딩에 실패하면 추가 로컬 보정 fallback 없이 원본 사진으로 진행합니다.
 - 인물 분리에 실패하거나 alpha가 없는 사진 업로드가 들어오면 합성을 진행하지 않고 재촬영을 요구합니다.
 - 이메일 첨부는 `gshs-ai-4cut-hq.jpg` JPEG quality 97, 4:4:4 색상 샘플링으로 전송합니다.
 - 운영 이벤트와 에러는 `EVENT_LOG_DIR`에 JSONL로 남기며, 이메일과 원본 사진은 로그에 저장하지 않습니다.
