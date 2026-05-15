@@ -41,6 +41,7 @@ type BeautyPreviewStatus = "idle" | "processing" | "ready" | "error";
 type CountdownMode = "prep" | "shutter";
 
 const CATEGORIES: KeywordCategory[] = ["theme", "mood", "color", "effect"];
+const DETAIL_CATEGORIES: KeywordCategory[] = ["mood", "color", "effect"];
 const CATEGORY_LABELS: Record<KeywordCategory, string> = {
   theme: "장소",
   mood: "느낌",
@@ -125,14 +126,6 @@ function defaultKeywords(analysis: PoseAnalysis): SelectedKeywords {
   }, {} as SelectedKeywords);
 }
 
-function presetKeywords(analysis: PoseAnalysis, index: number): SelectedKeywords {
-  return CATEGORIES.reduce((acc, category) => {
-    const options = analysis.recommended_keywords[category];
-    acc[category] = options[index % options.length] ?? options[0];
-    return acc;
-  }, {} as SelectedKeywords);
-}
-
 function conceptTitle(selection: SelectedKeywords | null): string {
   if (!selection) {
     return BOOTH_NAME;
@@ -145,10 +138,6 @@ function conceptStory(selection: SelectedKeywords | null): string {
     return "포즈에 어울리는 과학축제 배경을 만듭니다.";
   }
   return `${selection.mood} 느낌의 ${selection.theme} 배경에 ${selection.effect} 장식을 더합니다.`;
-}
-
-function isSameSelection(a: SelectedKeywords | null, b: SelectedKeywords): boolean {
-  return Boolean(a && CATEGORIES.every((category) => a[category] === b[category]));
 }
 
 function svgDataUrl(svg: string): string {
@@ -950,6 +939,10 @@ export function BoothApp() {
     setStep("capture");
   }
 
+  function updateSelectedKeyword(category: KeywordCategory, value: string) {
+    setTagSelection((current) => (current ? { ...current, [category]: value } : current));
+  }
+
   function retryBackgroundGeneration() {
     if (!tagSelection) {
       return;
@@ -1341,7 +1334,7 @@ export function BoothApp() {
 
           {!error && step === "tag_select" && analysis && tagSelection && (
             <div className="grid min-h-0 grid-cols-[390px_1fr] gap-8">
-              <div className="grid content-center gap-5">
+              <div className="grid min-h-0 content-center gap-4">
                 <div className="overflow-hidden rounded-[6px] border border-[var(--line)] bg-[var(--surface)] p-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={analysisPhoto ?? capturedPhotos[0]} alt="AI 추천 기준 사진" className="aspect-[3/4] w-full object-cover" />
@@ -1349,7 +1342,7 @@ export function BoothApp() {
                 <div className="rounded-[6px] bg-[var(--surface)] p-5 text-center">
                   <p className="text-xl font-black text-[var(--primary)]">AI가 포즈를 분석했어요</p>
                   <p className="mt-2 safe-text text-2xl font-black text-[var(--text-muted)]">
-                    오늘 어울리는 배경 세계관을 골라 주세요.
+                    메인 테마를 고르고 세부 태그를 조합해 주세요.
                   </p>
                 </div>
               </div>
@@ -1357,54 +1350,97 @@ export function BoothApp() {
               <div className="grid content-center gap-5">
                 <StepTitle
                   eyebrow="02 AI 추천"
-                  title="추천 배경을 골라 주세요"
-                  detail="카드 하나를 고르면 바로 그 분위기로 촬영을 시작합니다."
+                  title="배경 조합을 만들어 주세요"
+                  detail="큰 테마 하나를 고르고, 아래 세부 태그로 원하는 분위기를 더합니다."
                   compact
                 />
 
-                <div className="grid grid-cols-3 gap-4">
-                  {[0, 1, 2].map((presetIndex) => {
-                    const preset = presetKeywords(analysis, presetIndex);
-                    const active = isSameSelection(tagSelection, preset);
-                    return (
-                      <button
-                        key={`${preset.theme}-${preset.mood}-${preset.color}-${preset.effect}`}
-                        type="button"
-                        onClick={() => setTagSelection(preset)}
-                        className={`grid min-h-[320px] content-between rounded-[8px] border-2 p-7 text-left active:translate-y-[2px] ${
-                          active
-                            ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]"
-                            : "border-[var(--line-soft)] bg-[var(--surface)] text-[var(--text)]"
-                        }`}
-                      >
-                        <div className="grid gap-5">
-                          <p className={`text-lg font-black tracking-[0.16em] ${active ? "text-[#050505]/60" : "text-[var(--text-subtle)]"}`}>
-                            AI PICK {presetIndex + 1}
-                          </p>
-                          <h3 className="safe-text text-4xl font-black leading-tight">{conceptTitle(preset)}</h3>
-                          <p className={`safe-text text-2xl font-black leading-snug ${active ? "text-[#050505]/70" : "text-[var(--text-muted)]"}`}>
-                            {conceptStory(preset)}
-                          </p>
+                <div className="grid gap-4">
+                  <div className="grid gap-3 rounded-[8px] bg-[var(--surface)] p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-lg font-black tracking-[0.16em] text-[var(--primary)]">MAIN THEME</p>
+                        <h3 className="mt-1 text-3xl font-black text-[var(--text)]">전반적인 배경 테마</h3>
+                      </div>
+                      <p className="safe-text max-w-[380px] text-right text-lg font-black text-[var(--text-muted)]">
+                        먼저 큰 세계관을 고르면 AI가 이 테마를 중심으로 배경을 만듭니다.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {analysis.recommended_keywords.theme.map((keyword) => {
+                        const active = tagSelection.theme === keyword;
+                        return (
+                          <button
+                            key={keyword}
+                            type="button"
+                            onClick={() => updateSelectedKeyword("theme", keyword)}
+                            className={`min-h-[72px] rounded-[6px] border-2 px-4 text-2xl font-black active:translate-y-[2px] ${
+                              active
+                                ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]"
+                                : "border-[var(--line-soft)] bg-[#050505] text-[var(--text)]"
+                            }`}
+                          >
+                            {keyword}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    {DETAIL_CATEGORIES.map((category) => {
+                      const selected = tagSelection[category];
+                      const options = analysis.recommended_keywords[category];
+                      return (
+                        <div key={category} className="grid content-start gap-3 rounded-[8px] bg-[var(--surface)] p-4">
+                          <div>
+                            <p className="text-base font-black tracking-[0.16em] text-[var(--text-subtle)]">
+                              DETAIL TAG
+                            </p>
+                            <h3 className="mt-1 text-2xl font-black text-[var(--text)]">{CATEGORY_LABELS[category]}</h3>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {options.map((keyword) => {
+                              const active = selected === keyword;
+                              return (
+                                <button
+                                  key={`${category}-${keyword}`}
+                                  type="button"
+                                  onClick={() => updateSelectedKeyword(category, keyword)}
+                                  className={`min-h-[58px] rounded-[6px] border px-3 text-left text-xl font-black active:translate-y-[2px] ${
+                                    active
+                                      ? "border-[var(--primary)] bg-[rgba(94,234,212,0.12)] text-[var(--primary)]"
+                                      : "border-[var(--line-soft)] bg-[#050505] text-[var(--text-muted)]"
+                                  }`}
+                                >
+                                  {keyword}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {CATEGORIES.map((category) => (
-                            <span
-                              key={category}
-                              className={`rounded-full px-3 py-2 text-base font-black ${
-                                active ? "bg-[#050505]/12 text-[#050505]" : "bg-[#f4f1e8]/8 text-[var(--text-muted)]"
-                              }`}
-                            >
-                              {preset[category]}
-                            </span>
-                          ))}
-                        </div>
-                      </button>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-5 rounded-[8px] border border-[var(--line-soft)] bg-[var(--surface)] px-6 py-3">
+                    <div className="min-w-0">
+                      <p className="text-lg font-black text-[var(--primary)]">현재 조합</p>
+                      <h3 className="safe-text mt-1 text-2xl font-black text-[var(--text)]">{conceptTitle(tagSelection)}</h3>
+                      <p className="safe-text mt-1 text-lg font-black text-[var(--text-muted)]">{conceptStory(tagSelection)}</p>
+                    </div>
+                    <div className="flex max-w-[460px] flex-wrap justify-end gap-2">
+                      {CATEGORIES.map((category) => (
+                        <span key={category} className="rounded-full bg-[#f4f1e8]/8 px-4 py-1.5 text-base font-black text-[var(--text-muted)]">
+                          {CATEGORY_LABELS[category]}: {tagSelection[category]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <KioskButton onClick={() => void chooseTagsAndContinue()} className="min-h-[96px] text-3xl">
-                  이 배경으로 촬영하기
+                <KioskButton onClick={() => void chooseTagsAndContinue()} className="min-h-[82px] text-2xl">
+                  이 조합으로 촬영하기
                   <ArrowRight className="h-11 w-11" />
                 </KioskButton>
               </div>
