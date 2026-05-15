@@ -18,6 +18,7 @@ npm run dev
 - `main` 브랜치는 보호됩니다. 직접 푸시하지 말고 PR로 변경하세요.
 - PR은 코드 오너 승인 후 머지됩니다.
 - 기여 절차는 [CONTRIBUTING.md](CONTRIBUTING.md)를 따릅니다.
+- 개인정보 처리 기준은 [PRIVACY.md](PRIVACY.md)를 따릅니다.
 - 버그 제보와 기능 제안은 GitHub Issues 템플릿을 사용합니다.
 - 실제 참가자 사진, 이메일 주소, `.env`, 운영 로그, 임시 세션 파일은 커밋하지 않습니다.
 
