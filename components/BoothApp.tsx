@@ -455,11 +455,11 @@ function BeautySelector({
           <h3 className="text-3xl font-black">얼굴 보정</h3>
         </div>
         <span className="rounded-[4px] bg-[var(--primary)] px-4 py-2 text-xl font-black text-[var(--primary-text)]">
-          {BEAUTY_OPTIONS.find((option) => option.value === value)?.label}
+          {BEAUTY_OPTIONS.find((option) => option.value === value)?.caption}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-5 gap-2">
         {BEAUTY_OPTIONS.map((option) => {
           const active = option.value === value;
           return (
@@ -467,13 +467,13 @@ function BeautySelector({
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`grid min-h-[86px] content-center gap-1 rounded-[4px] border-[3px] px-3 text-center active:translate-y-[2px] ${
+              className={`grid min-h-[82px] content-center gap-1 rounded-[4px] border-[2px] px-2 text-center active:translate-y-[2px] ${
                 active
                   ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)]"
                   : "border-[var(--line)] bg-transparent text-[var(--text)]"
               }`}
             >
-              <span className="text-2xl font-black">{option.label}</span>
+              <span className="text-xl font-black">{option.label}</span>
               <span className={`text-base font-black ${active ? "text-[#050505]/70" : "text-[var(--text-muted)]"}`}>
                 {option.caption}
               </span>

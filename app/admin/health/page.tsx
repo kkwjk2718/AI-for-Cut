@@ -144,9 +144,41 @@ async function checkMediaPipeAssets(): Promise<HealthCheck> {
   );
 
   return {
-    label: "MediaPipe",
+    label: "MediaPipe segmentation",
     state: missing.length === 0 ? "ok" : "fail",
     detail: missing.length === 0 ? "로컬 segmentation asset이 준비되어 있습니다." : `누락: ${missing.join(", ")}`,
+  };
+}
+
+async function checkFaceMeshAssets(): Promise<HealthCheck> {
+  const required = [
+    "face_mesh.binarypb",
+    "face_mesh.js",
+    "face_mesh_solution_packed_assets.data",
+    "face_mesh_solution_packed_assets_loader.js",
+    "face_mesh_solution_simd_wasm_bin.data",
+    "face_mesh_solution_simd_wasm_bin.js",
+    "face_mesh_solution_simd_wasm_bin.wasm",
+    "face_mesh_solution_wasm_bin.js",
+    "face_mesh_solution_wasm_bin.wasm",
+  ];
+  const root = path.join(process.cwd(), "public", "vendor", "mediapipe", "face_mesh");
+  const missing: string[] = [];
+
+  await Promise.all(
+    required.map(async (fileName) => {
+      try {
+        await fs.access(path.join(root, fileName));
+      } catch {
+        missing.push(fileName);
+      }
+    }),
+  );
+
+  return {
+    label: "MediaPipe FaceMesh",
+    state: missing.length === 0 ? "ok" : "fail",
+    detail: missing.length === 0 ? "로컬 얼굴 랜드마크 asset이 준비되어 있습니다." : `누락: ${missing.join(", ")}`,
   };
 }
 
@@ -232,6 +264,7 @@ export default async function AdminHealthPage() {
       checkTempStorage(),
       checkDiskSpace(),
       checkMediaPipeAssets(),
+      checkFaceMeshAssets(),
       checkBrandAssets(),
     ])),
     ...localConfigChecks(),
