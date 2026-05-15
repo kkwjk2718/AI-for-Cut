@@ -199,9 +199,8 @@ input:focus-visible {
 }
 
 .photoism-theme img[src*="ieum-logo"] {
-  padding: 5px;
   border-radius: 4px;
-  background: #f4f1e8;
+  background: transparent;
   filter: none;
 }
 

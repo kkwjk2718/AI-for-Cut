@@ -241,7 +241,9 @@ function KioskHeader({ step, onRestart }: { step: Step; onRestart: () => void })
     <header className="grid h-[96px] shrink-0 grid-cols-[1fr_auto] items-center border-b border-[var(--line-soft)] bg-[var(--bg)] px-9 text-[var(--text)]">
       <div className="flex min-w-0 items-center gap-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/ieum-logo.png" alt="IEUM" className="h-12 w-24 object-contain" />
+        <span className="grid h-16 w-40 shrink-0 place-items-center overflow-hidden rounded-[4px] bg-[#f4f1e8]">
+          <img src="/brand/ieum-logo.png" alt="IEUM" className="h-full w-full object-contain" />
+        </span>
         <div className="min-w-0">
           <p className="safe-text truncate text-xl font-black">{EVENT_TITLE}</p>
           <p className="safe-text truncate text-sm font-black tracking-[0.18em] text-[var(--text-subtle)]">
