@@ -1,4 +1,5 @@
 import { logError, logEvent } from "./event-log";
+import sharp from "sharp";
 
 interface SendPhotoEmailOptions {
   to: string;
@@ -18,7 +19,7 @@ function isProduction(): boolean {
 
 const EVENT_TITLE = "2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌";
 const BOOTH_NAME = "AI와 함께하는 수과정페 네컷";
-const CLUB_NAME = "IEUM(이음)";
+const CLUB_NAME = "IEUM";
 const PRIVACY_POLICY_URL = "https://github.com/kkwjk2718/AI-for-Cut/blob/main/PRIVACY.md";
 
 const emailTextContent = `안녕하세요.
@@ -43,7 +44,24 @@ ${PRIVACY_POLICY_URL}
 
 경남과학고등학교 동아리 IEUM 드림`;
 
-function buildEmailHtmlContent(): string {
+async function buildInlinePreviewDataUri(image: Buffer): Promise<string | null> {
+  try {
+    const preview = await sharp(image)
+      .rotate()
+      .resize({ width: 680, withoutEnlargement: true })
+      .jpeg({ quality: 86, chromaSubsampling: "4:4:4" })
+      .toBuffer();
+    return `data:image/jpeg;base64,${preview.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+function buildEmailHtmlContent(inlinePreviewDataUri: string | null): string {
+  const previewHtml = inlinePreviewDataUri
+    ? `<img src="${inlinePreviewDataUri}" alt="완성된 네컷 사진" style="display:block; width:100%; max-width:360px; margin:20px auto 4px; border-radius:12px; border:1px solid rgba(5,5,5,0.16);" />`
+    : "";
+
   return `<!doctype html>
 <html lang="ko">
   <head>
@@ -72,6 +90,7 @@ function buildEmailHtmlContent(): string {
                 </p>
                 <div style="margin:28px 0; padding:22px 24px; border-radius:16px; background:#f4f1e8; color:#050505;">
                   <p style="margin:0; font-size:22px; line-height:1.45; font-weight:900;">완성된 네컷 사진을 첨부했습니다.</p>
+                  ${previewHtml}
                   <p style="margin:10px 0 0; font-size:16px; line-height:1.7; font-weight:700;">오늘의 즐거운 기억을 오래 간직하시는 데 작은 선물이 되었으면 좋겠습니다.</p>
                 </div>
                 <p style="margin:0 0 16px; font-size:15px; line-height:1.8; color:rgba(244,241,232,0.72);">
@@ -125,6 +144,8 @@ export async function sendPhotoEmail({
     return { success: true, skipped: true };
   }
 
+  const inlinePreviewDataUri = await buildInlinePreviewDataUri(image);
+
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -140,7 +161,7 @@ export async function sendPhotoEmail({
       to: [{ email: to }],
       subject: `[${BOOTH_NAME}] 완성 사진을 보내드립니다`,
       textContent: emailTextContent,
-      htmlContent: buildEmailHtmlContent(),
+      htmlContent: buildEmailHtmlContent(inlinePreviewDataUri),
       attachment: [
         {
           content: image.toString("base64"),
