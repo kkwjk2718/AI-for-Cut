@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { archiveFinalImage } from "@/lib/admin-store";
+import { DEFAULT_FRAME_COLOR_ID, getFrameColorOption, type FrameColorId } from "@/lib/frame-colors";
 import { composeFourCut } from "@/lib/image-compose";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { readSession, updateSession } from "@/lib/session-store";
@@ -18,8 +19,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as { sessionId?: string };
+    const body = (await request.json()) as { sessionId?: string; frameColorId?: string };
     const sessionId = assertSessionId(body.sessionId);
+    const frameColorId = getFrameColorOption(body.frameColorId).id as FrameColorId;
     const session = await readSession(sessionId);
     if (!session.files.background) {
       throw new Error("배경 이미지가 없습니다.");
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
     const shots = await Promise.all(
       session.files.shots.slice(0, 4).map((fileName) => readSessionFile(sessionId, fileName)),
     );
-    const finalImage = await composeFourCut(background, shots);
+    const finalImage = await composeFourCut(background, shots, frameColorId || DEFAULT_FRAME_COLOR_ID);
     await writeSessionFile(sessionId, "final.png", finalImage);
     const updatedSession = await updateSession(sessionId, (draft) => {
       draft.files.final = "final.png";

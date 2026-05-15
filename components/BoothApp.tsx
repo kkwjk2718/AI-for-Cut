@@ -18,6 +18,7 @@ import { Countdown } from "./Countdown";
 import { EmailForm } from "./EmailForm";
 import { applyBeautyFilter, BEAUTY_OPTIONS, type BeautyStrength } from "@/lib/client-beauty";
 import { removeBackgroundDataUrl } from "@/lib/client-segmentation";
+import { DEFAULT_FRAME_COLOR_ID, FRAME_COLOR_OPTIONS, getFrameColorOption, type FrameColorId } from "@/lib/frame-colors";
 import type { ApiResponse, KeywordCategory, PoseAnalysis, SelectedKeywords } from "@/lib/types";
 
 type Step =
@@ -388,12 +389,15 @@ function CompositingFramePreview({
   photos,
   title = "AI가 배경을 입히는 중",
   compact = false,
+  frameColorId = DEFAULT_FRAME_COLOR_ID,
 }: {
   photos: Array<string | undefined>;
   title?: string;
   compact?: boolean;
+  frameColorId?: FrameColorId;
 }) {
   const slots = Array.from({ length: 4 }, (_, index) => photos[index]);
+  const frameColor = getFrameColorOption(frameColorId);
   const shellClass = compact ? "max-w-[350px]" : "max-w-[520px]";
   const panelClass = compact ? "gap-2.5 p-3" : "gap-4 p-5";
   const gridGapClass = compact ? "gap-2.5" : "gap-4";
@@ -402,7 +406,10 @@ function CompositingFramePreview({
 
   return (
     <div className={`ai-composite-shell mx-auto w-full ${shellClass} rounded-[10px] p-[5px]`}>
-      <div className={`relative grid ${panelClass} rounded-[6px] bg-[#050505] text-[var(--text)]`}>
+      <div
+        className={`relative grid ${panelClass} rounded-[6px]`}
+        style={{ backgroundColor: frameColor.value, color: frameColor.textColor }}
+      >
         <div className={`${compact ? "left-4 top-4 px-3 py-1.5 text-xs" : "left-5 top-5 px-4 py-2 text-sm"} absolute z-20 rounded-[4px] bg-[#050505]/74 font-black tracking-[0.16em] text-[var(--primary)]`}>
           AI COMPOSITING
         </div>
@@ -424,7 +431,11 @@ function CompositingFramePreview({
           <img src="/brand/school-mark.png" alt="경남과학고등학교" className={`${logoClass} rounded-full bg-[#f4f1e8] object-cover`} />
           <div className="text-center">
             {EVENT_TITLE_FRAME_LINES.map((line) => (
-              <p key={line} className={`${compact ? "text-[10px]" : "text-xs"} safe-text font-black leading-tight text-[var(--text)]`}>
+              <p
+                key={line}
+                className={`${compact ? "text-[10px]" : "text-xs"} safe-text font-black leading-tight`}
+                style={{ color: frameColor.textColor }}
+              >
                 {line}
               </p>
             ))}
@@ -432,9 +443,56 @@ function CompositingFramePreview({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/keuni-deuri-hands.png" alt="크니 드리" className={`${characterClass} object-contain`} />
         </div>
-        <p className={`${compact ? "text-base" : "text-xl"} safe-text rounded-[4px] bg-[#f4f1e8]/8 px-4 py-3 text-center font-black text-[var(--text)]`}>
+        <p
+          className={`${compact ? "text-base" : "text-xl"} safe-text rounded-[4px] px-4 py-3 text-center font-black`}
+          style={{ backgroundColor: `${frameColor.textColor}14`, color: frameColor.textColor }}
+        >
           {title}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function FrameColorSelector({
+  value,
+  onChange,
+}: {
+  value: FrameColorId;
+  onChange: (value: FrameColorId) => void;
+}) {
+  return (
+    <div className="grid gap-4 rounded-[6px] border border-[var(--line-soft)] bg-[var(--surface)] p-5 text-[var(--text)]">
+      <div className="flex items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <p className="text-lg font-black tracking-[0.18em] text-[var(--text-subtle)]">프레임 설정</p>
+          <h3 className="text-3xl font-black">프레임 색</h3>
+        </div>
+        <span className="rounded-[4px] border border-[var(--line-soft)] px-4 py-2 text-lg font-black text-[var(--text-muted)]">
+          {getFrameColorOption(value).label}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {FRAME_COLOR_OPTIONS.map((option) => {
+          const active = option.id === value;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              title={option.label}
+              aria-label={`프레임 색 ${option.label}`}
+              onClick={() => onChange(option.id)}
+              className={`grid h-14 w-14 place-items-center rounded-full border-2 active:translate-y-[2px] ${
+                active ? "border-[var(--primary)] bg-[var(--primary)]/18" : "border-[var(--line-soft)] bg-transparent"
+              }`}
+            >
+              <span
+                className="block h-10 w-10 rounded-full border-2"
+                style={{ backgroundColor: option.value, borderColor: option.borderColor }}
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -605,6 +663,7 @@ export function BoothApp() {
   const [tagSelection, setTagSelection] = useState<SelectedKeywords | null>(null);
   const [selectedPhotoIndices, setSelectedPhotoIndices] = useState<number[]>([]);
   const [beautyStrength, setBeautyStrength] = useState<BeautyStrength>(2);
+  const [frameColorId, setFrameColorId] = useState<FrameColorId>(DEFAULT_FRAME_COLOR_ID);
   const [requiredConsentAccepted, setRequiredConsentAccepted] = useState(false);
   const [archiveImageConsent, setArchiveImageConsent] = useState(false);
   const [archiveConsentExpanded, setArchiveConsentExpanded] = useState(false);
@@ -663,6 +722,7 @@ export function BoothApp() {
     setBeautyPreviewStatus("ready");
     setBeautyPreviewError(null);
     setBeautyStrength(2);
+    setFrameColorId(DEFAULT_FRAME_COLOR_ID);
     setSelectedPhotoIndices([0, 1, 2, 3]);
     setRequiredConsentAccepted(screenshotStep !== "consent");
     setArchiveImageConsent(false);
@@ -757,6 +817,7 @@ export function BoothApp() {
       setBeautyPreviewStatus("idle");
       setBeautyPreviewError(null);
       setSelectedPhotoIndices([]);
+      setFrameColorId(DEFAULT_FRAME_COLOR_ID);
       setAnalysis(null);
       setTagSelection(null);
       setBackgroundStatus("idle");
@@ -798,6 +859,7 @@ export function BoothApp() {
     setBeautyPreviewStatus("idle");
     setBeautyPreviewError(null);
     setSelectedPhotoIndices([]);
+    setFrameColorId(DEFAULT_FRAME_COLOR_ID);
     setAnalysis(null);
     setTagSelection(null);
     setRequiredConsentAccepted(false);
@@ -1088,10 +1150,11 @@ export function BoothApp() {
     setStep("compose");
     const data = await postJson<{ finalUrl: string }>("/api/compose", {
       sessionId: requireSession(),
+      frameColorId,
     });
     setFinalUrl(`${data.finalUrl}?t=${Date.now()}`);
     setStep("result");
-  }, [sessionId]);
+  }, [sessionId, frameColorId]);
 
   async function uploadSelectedPhotos() {
     try {
@@ -1593,7 +1656,12 @@ export function BoothApp() {
                   </div>
                 )}
                 {selectedPhotoIndices.length > 0 && (
-                  <CompositingFramePreview photos={selectedFramePhotos} title="선택한 사진에 AI 배경을 입히는 중" compact />
+                  <CompositingFramePreview
+                    photos={selectedFramePhotos}
+                    title="선택한 사진에 AI 배경을 입히는 중"
+                    compact
+                    frameColorId={frameColorId}
+                  />
                 )}
               </div>
               <div className="grid gap-5">
@@ -1671,6 +1739,7 @@ export function BoothApp() {
                     })}
                   </div>
                 </div>
+                <FrameColorSelector value={frameColorId} onChange={setFrameColorId} />
                 <BeautySelector value={beautyStrength} onChange={setBeautyStrength} />
                 {beautyPreviewStatus === "processing" && (
                   <p className="rounded-[4px] border-2 border-[#f4f1e8]/55 px-5 py-3 text-center text-2xl font-black text-[#f4f1e8]/72">
@@ -1710,7 +1779,11 @@ export function BoothApp() {
 
           {!error && step === "uploading" && (
             <div className="grid h-full grid-cols-[560px_1fr] items-center gap-12">
-              <CompositingFramePreview photos={selectedFramePhotos} title="크로마키 사진을 프레임에 올리는 중" />
+              <CompositingFramePreview
+                photos={selectedFramePhotos}
+                title="크로마키 사진을 프레임에 올리는 중"
+                frameColorId={frameColorId}
+              />
               <LoadingPanel
                 icon={<Wand2 className="h-16 w-16 animate-pulse" />}
                 title="사진을 정리하고 있습니다"
@@ -1721,7 +1794,11 @@ export function BoothApp() {
 
           {!error && step === "compose" && (
             <div className="grid h-full grid-cols-[560px_1fr] items-center gap-12">
-              <CompositingFramePreview photos={selectedFramePhotos} title="AI 배경과 네컷 프레임을 합성하는 중" />
+              <CompositingFramePreview
+                photos={selectedFramePhotos}
+                title="AI 배경과 네컷 프레임을 합성하는 중"
+                frameColorId={frameColorId}
+              />
               <LoadingPanel
                 icon={<Camera className="h-16 w-16 animate-pulse" />}
                 title="네컷 사진을 만들고 있습니다"
