@@ -14,6 +14,7 @@ export function Countdown({ value, label, variant = "prep" }: CountdownProps) {
   if (variant === "shutter") {
     return (
       <div className="pointer-events-none absolute inset-0 z-30">
+        <div key={value} className="shutter-border-blink absolute inset-0 rounded-[8px] border-[8px] border-[#f04438]" />
         <div className="absolute right-4 top-4 grid place-items-center gap-1.5 text-center" aria-live="assertive">
           <div className="rounded-[4px] bg-[#f04438] px-4 py-1.5 text-xl font-black text-[#f4f1e8] shadow-[0_8px_28px_rgba(0,0,0,0.42)]">
             {label ?? "촬영"}

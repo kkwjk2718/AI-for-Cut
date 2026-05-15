@@ -62,14 +62,9 @@ const BACKGROUND_STAGES = [
 const FINAL_CAPTURE_COUNT = 6;
 const PREP_COUNTDOWN_VALUES = [5, 4, 3, 2, 1];
 const COUNTDOWN_VALUES = [3, 2, 1];
-const SHOT_MISSIONS = [
-  "미래 연구소를 발견한 표정",
-  "실험 버튼을 누르는 포즈",
-  "놀란 표정으로 한 컷",
-  "친구와 임무 성공 포즈",
-  "AI 조수에게 인사하기",
-  "마지막 주인공 포즈",
-];
+const FREE_CAPTURE_READY_TEXT = "화면을 보면서 자유롭게 준비해 주세요";
+const FREE_CAPTURE_SHUTTER_TEXT = "곧 촬영합니다. 화면을 계속 봐 주세요";
+const SHUTTER_FLASH_MS = 240;
 const POSE_EXAMPLES = ["브이", "손하트", "양손 번쩍", "생각하는 포즈"];
 
 const STEP_STAGE: Record<Step, number> = {
@@ -535,6 +530,7 @@ export function BoothApp() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
   const [countdownMode, setCountdownMode] = useState<CountdownMode | null>(null);
+  const [cameraFlash, setCameraFlash] = useState(false);
   const [analysisHelpSeconds, setAnalysisHelpSeconds] = useState(10);
   const [analysisPhoto, setAnalysisPhoto] = useState<string | null>(null);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
@@ -579,6 +575,7 @@ export function BoothApp() {
     const params = new URLSearchParams(window.location.search);
     const screenshotStep = params.get("screenshotStep") as Step | null;
     const screenshotCountdown = params.get("screenshotCountdown");
+    const screenshotFlash = params.get("screenshotFlash") === "1";
     if (!screenshotStep || !(screenshotStep in STEP_STAGE)) {
       return;
     }
@@ -605,9 +602,10 @@ export function BoothApp() {
     setPendingUploadAfterBackground(screenshotStep === "background_loading");
     setUploadStatus("선택한 사진을 네컷 프레임에 맞추고 있습니다");
     setShotIndex(screenshotStep === "capture" ? 2 : 1);
-    setShotStatus(screenshotStep === "capture" ? SHOT_MISSIONS[1] : "화면을 보고 원하는 테마를 몸짓으로 표현해 주세요");
+    setShotStatus(screenshotStep === "capture" ? FREE_CAPTURE_READY_TEXT : "화면을 보고 원하는 테마를 몸짓으로 표현해 주세요");
     setFinalUrl(demoFinalDataUrl());
     setCompleteTitle("완료");
+    setCameraFlash(screenshotFlash);
     if (screenshotCountdown === "prep") {
       setCountdownMode("prep");
       setCountdownLabel(screenshotStep === "capture" ? "포즈 변경" : "포즈 준비");
@@ -648,6 +646,32 @@ export function BoothApp() {
     clearCountdown();
   }
 
+  const triggerCameraFlash = useCallback(async (runId: number) => {
+    if (flowRunRef.current !== runId) {
+      return;
+    }
+    setCameraFlash(true);
+    await sleep(SHUTTER_FLASH_MS);
+    if (flowRunRef.current === runId) {
+      setCameraFlash(false);
+    }
+  }, []);
+
+  const captureCurrentFrameWithFlash = useCallback(
+    async (runId: number) => {
+      if (flowRunRef.current !== runId) {
+        return null;
+      }
+      setShotStatus("찰칵!");
+      const flash = triggerCameraFlash(runId);
+      await sleep(70);
+      const captured = flowRunRef.current === runId ? (cameraRef.current?.capture("image/png") ?? null) : null;
+      await flash;
+      return captured;
+    },
+    [triggerCameraFlash],
+  );
+
   async function start() {
     try {
       if (!requiredConsentAccepted) {
@@ -673,6 +697,7 @@ export function BoothApp() {
       setUploadStatus("");
       setShotIndex(1);
       setShotStatus("카메라를 준비하고 있습니다");
+      setCameraFlash(false);
       setCameraReady(false);
       setCompleteTitle("전송 완료");
       clearCountdown();
@@ -693,6 +718,7 @@ export function BoothApp() {
     flowRunRef.current += 1;
     captureStartedRef.current = false;
     clearCountdown();
+    setCameraFlash(false);
     setStep("idle");
     setSessionId(null);
     setCameraReady(false);
@@ -729,6 +755,7 @@ export function BoothApp() {
   const beginAnalysisCapture = useCallback(() => {
     captureStartedRef.current = false;
     clearCountdown();
+    setCameraFlash(false);
     setShotIndex(1);
       setShotStatus("AI가 배경을 고를 사진을 준비해 주세요");
     setCameraReady(false);
@@ -789,7 +816,10 @@ export function BoothApp() {
       if (flowRunRef.current !== runId) {
         return;
       }
-      const captured = cameraRef.current?.capture("image/png");
+      const captured = await captureCurrentFrameWithFlash(runId);
+      if (flowRunRef.current !== runId) {
+        return;
+      }
       if (!captured) {
         throw new Error("사진을 촬영하지 못했습니다");
       }
@@ -798,9 +828,10 @@ export function BoothApp() {
       await analyzeFirstPhoto(captured, runId);
     } catch (captureError) {
       clearCountdown();
+      setCameraFlash(false);
       setError(captureError instanceof Error ? captureError.message : "AI가 배경을 고를 사진 촬영에 실패했습니다");
     }
-  }, [activeRun, analyzeFirstPhoto]);
+  }, [activeRun, analyzeFirstPhoto, captureCurrentFrameWithFlash]);
 
   const captureFinalPhotos = useCallback(async () => {
     const runId = activeRun();
@@ -817,17 +848,20 @@ export function BoothApp() {
           return;
         }
         setShotIndex(index);
-        setShotStatus(SHOT_MISSIONS[index - 1] ?? "자유 포즈");
+        setShotStatus(FREE_CAPTURE_READY_TEXT);
         await runCountdown(runId, PREP_COUNTDOWN_VALUES, index === 1 ? "포즈 준비" : "포즈 변경", "prep");
         if (flowRunRef.current !== runId) {
           return;
         }
-        setShotStatus(SHOT_MISSIONS[index - 1] ?? "자유 포즈");
+        setShotStatus(FREE_CAPTURE_SHUTTER_TEXT);
         await runCountdown(runId, COUNTDOWN_VALUES, "촬영", "shutter");
         if (flowRunRef.current !== runId) {
           return;
         }
-        const captured = cameraRef.current?.capture("image/png");
+        const captured = await captureCurrentFrameWithFlash(runId);
+        if (flowRunRef.current !== runId) {
+          return;
+        }
         if (!captured) {
           throw new Error("사진을 촬영하지 못했습니다");
         }
@@ -840,9 +874,10 @@ export function BoothApp() {
       }
     } catch (captureError) {
       clearCountdown();
+      setCameraFlash(false);
       setError(captureError instanceof Error ? captureError.message : "최종 사진 촬영에 실패했습니다");
     }
-  }, [activeRun]);
+  }, [activeRun, captureCurrentFrameWithFlash]);
 
   useEffect(() => {
     if ((step !== "analysis_capture" && step !== "capture") || !cameraReady || captureStartedRef.current) {
@@ -1298,6 +1333,7 @@ export function BoothApp() {
                       />
                       <CameraGuideOverlay />
                       <Countdown value={countdownMode === "shutter" ? countdown : null} label={countdownLabel} variant="shutter" />
+                      {cameraFlash && <div className="camera-flash-effect" aria-hidden="true" />}
                     </div>
                   ) : (
                     <CameraPreview
@@ -1307,18 +1343,19 @@ export function BoothApp() {
                       variant="kiosk"
                     >
                       <Countdown value={countdownMode === "shutter" ? countdown : null} label={countdownLabel} variant="shutter" />
+                      {cameraFlash && <div className="camera-flash-effect" aria-hidden="true" />}
                     </CameraPreview>
                   )}
                   <div className="absolute bottom-6 left-6 right-6 rounded-[6px] border border-[var(--line)] bg-[#050505]/86 px-7 py-4 text-center text-3xl font-black text-[var(--text)]">
-                    {step === "analysis_capture" ? "AI가 배경을 고를 사진" : `${shotIndex}/${FINAL_CAPTURE_COUNT} 컷 미션`}
+                    {step === "analysis_capture" ? "AI가 배경을 고를 사진" : `${shotIndex}/${FINAL_CAPTURE_COUNT} 컷`}
                   </div>
                 </div>
               </div>
               <div className="grid content-center gap-8">
                 <StepTitle
-                  eyebrow={step === "analysis_capture" ? "01 AI 추천 사진" : "03 미션 촬영"}
+                  eyebrow={step === "analysis_capture" ? "01 AI 추천 사진" : "03 자동 촬영"}
                   title={step === "analysis_capture" ? "크게 포즈를 보여 주세요" : `${shotIndex}/${FINAL_CAPTURE_COUNT} 컷`}
-                  detail={step === "analysis_capture" ? "최종 네컷에는 들어가지 않는 AI 추천 사진입니다." : "이번 컷 미션"}
+                  detail={step === "analysis_capture" ? "최종 네컷에는 들어가지 않는 AI 추천 사진입니다." : "자동 촬영"}
                   compact
                   right={<div className="rounded-[6px] bg-[var(--primary)] px-6 py-4 text-2xl font-black text-[var(--primary-text)]">AUTO</div>}
                 />
