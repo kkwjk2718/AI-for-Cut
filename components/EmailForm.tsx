@@ -291,16 +291,17 @@ export function EmailForm({ disabled, layout = "portrait", onSubmit, onSkip }: E
               {key}
             </button>
           ))}
-          <button type="button" className={keyClass} onClick={() => moveCursor(-1)}>
+          <button type="button" className={keyClass} onClick={() => moveCursor(-1)} aria-label="커서 왼쪽으로 이동">
             <ChevronLeft className="h-7 w-7" />
           </button>
-          <button type="button" className={keyClass} onClick={() => moveCursor(1)}>
+          <button type="button" className={keyClass} onClick={() => moveCursor(1)} aria-label="커서 오른쪽으로 이동">
             <ChevronRight className="h-7 w-7" />
           </button>
           <button
             type="button"
-            className={`${keyClass} ${symbolKeys.length === 2 ? "col-span-3" : "col-span-2"}`}
+            className={`${keyClass} ${symbolKeys.length === 2 ? "col-span-4" : "col-span-3"}`}
             onClick={backspace}
+            aria-label="한 글자 지우기"
           >
             <Delete className="h-7 w-7" />
           </button>
