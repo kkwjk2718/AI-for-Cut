@@ -49,6 +49,7 @@ const CATEGORY_LABELS: Record<KeywordCategory, string> = {
   effect: "장식",
 };
 const EVENT_TITLE = "2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌";
+const EVENT_TITLE_FRAME_LINES = ["2026. 진주시와 함께하는 경남과학고등학교", "수학, 과학, 정보 페스티벌"];
 const BOOTH_NAME = "AI와 함께하는 수과정페 네컷";
 const CLUB_NAME = "이음(IEUM)";
 const CLUB_SLOGAN = "- 기술로 사람과 사람을 잇다";
@@ -173,8 +174,9 @@ function demoFinalDataUrl(): string {
     <svg xmlns="http://www.w3.org/2000/svg" width="2400" height="3600" viewBox="0 0 2400 3600">
       <rect width="2400" height="3600" fill="#050505"/>
       ${cells}
-      <text x="1200" y="3330" fill="#f4f1e8" font-family="Arial" font-size="58" font-weight="800" text-anchor="middle">2026. 진주시와 함께하는 경남과학고등학교 수학, 과학, 정보 페스티벌</text>
-      <text x="1200" y="3420" fill="#5eead4" font-family="Arial" font-size="44" font-weight="800" text-anchor="middle">AI TYPE: 초록 홀로그램 과학자</text>
+      <text x="1200" y="3290" fill="#f4f1e8" font-family="Arial" font-size="58" font-weight="800" text-anchor="middle">${EVENT_TITLE_FRAME_LINES[0]}</text>
+      <text x="1200" y="3370" fill="#f4f1e8" font-family="Arial" font-size="58" font-weight="800" text-anchor="middle">${EVENT_TITLE_FRAME_LINES[1]}</text>
+      <text x="1200" y="3460" fill="#5eead4" font-family="Arial" font-size="44" font-weight="800" text-anchor="middle">AI TYPE: 초록 홀로그램 과학자</text>
     </svg>
   `);
 }
@@ -369,10 +371,70 @@ function FramePreviewMockup() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/school-mark.png" alt="경남과학고등학교" className="h-20 w-20 rounded-full bg-[#f4f1e8] object-cover" />
         <div className="text-center">
-          <p className="safe-text text-sm font-black leading-tight text-[var(--text)]">{EVENT_TITLE}</p>
+          {EVENT_TITLE_FRAME_LINES.map((line) => (
+            <p key={line} className="safe-text text-sm font-black leading-tight text-[var(--text)]">
+              {line}
+            </p>
+          ))}
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/keuni-deuri-hands.png" alt="크니 드리" className="h-20 w-[110px] object-contain" />
+      </div>
+    </div>
+  );
+}
+
+function CompositingFramePreview({
+  photos,
+  title = "AI가 배경을 입히는 중",
+  compact = false,
+}: {
+  photos: Array<string | undefined>;
+  title?: string;
+  compact?: boolean;
+}) {
+  const slots = Array.from({ length: 4 }, (_, index) => photos[index]);
+  const shellClass = compact ? "max-w-[350px]" : "max-w-[520px]";
+  const panelClass = compact ? "gap-2.5 p-3" : "gap-4 p-5";
+  const gridGapClass = compact ? "gap-2.5" : "gap-4";
+  const logoClass = compact ? "h-10 w-10" : "h-16 w-16";
+  const characterClass = compact ? "h-10 w-[66px]" : "h-16 w-[92px]";
+
+  return (
+    <div className={`ai-composite-shell mx-auto w-full ${shellClass} rounded-[10px] p-[5px]`}>
+      <div className={`relative grid ${panelClass} rounded-[6px] bg-[#050505] text-[var(--text)]`}>
+        <div className={`${compact ? "left-4 top-4 px-3 py-1.5 text-xs" : "left-5 top-5 px-4 py-2 text-sm"} absolute z-20 rounded-[4px] bg-[#050505]/74 font-black tracking-[0.16em] text-[var(--primary)]`}>
+          AI COMPOSITING
+        </div>
+        <div className={`grid grid-cols-2 ${gridGapClass}`}>
+          {slots.map((src, index) => (
+            <div key={index} className="relative aspect-[3/4] overflow-hidden rounded-[4px] bg-[#063d34]">
+              {src ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={src} alt={`${index + 1}번째 합성 대기 사진`} className="h-full w-full object-cover" />
+              ) : (
+                <div className="grid h-full place-items-center text-4xl font-black text-[var(--text-subtle)]">{index + 1}</div>
+              )}
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,transparent_0,transparent_46%,rgba(5,5,5,0.18)_100%)]" />
+            </div>
+          ))}
+        </div>
+        <div className={`${compact ? "grid-cols-[40px_1fr_66px] gap-2.5" : "grid-cols-[64px_1fr_92px] gap-4"} grid items-center`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/school-mark.png" alt="경남과학고등학교" className={`${logoClass} rounded-full bg-[#f4f1e8] object-cover`} />
+          <div className="text-center">
+            {EVENT_TITLE_FRAME_LINES.map((line) => (
+              <p key={line} className={`${compact ? "text-[10px]" : "text-xs"} safe-text font-black leading-tight text-[var(--text)]`}>
+                {line}
+              </p>
+            ))}
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/keuni-deuri-hands.png" alt="크니 드리" className={`${characterClass} object-contain`} />
+        </div>
+        <p className={`${compact ? "text-base" : "text-xl"} safe-text rounded-[4px] bg-[#f4f1e8]/8 px-4 py-3 text-center font-black text-[var(--text)]`}>
+          {title}
+        </p>
       </div>
     </div>
   );
@@ -561,6 +623,14 @@ export function BoothApp() {
   const cameraActive = step === "analysis_capture" || step === "capture";
   const selectedReady = selectedPhotoIndices.length === 4;
   const previewPhotos = beautifiedPhotos.length === capturedPhotos.length ? beautifiedPhotos : capturedPhotos;
+  const selectedFramePhotos = useMemo(
+    () =>
+      Array.from({ length: 4 }, (_, order) => {
+        const photoIndex = selectedPhotoIndices[order];
+        return typeof photoIndex === "number" ? previewPhotos[photoIndex] : undefined;
+      }),
+    [previewPhotos, selectedPhotoIndices],
+  );
   const beautyPreviewProcessing = beautyPreviewStatus === "processing";
   const screenshotMode =
     process.env.NODE_ENV !== "production" &&
@@ -1524,17 +1594,7 @@ export function BoothApp() {
                   </div>
                 )}
                 {selectedPhotoIndices.length > 0 && (
-                  <div className="grid grid-cols-4 gap-3">
-                    {selectedPhotoIndices.map((photoIndex, order) => (
-                      <div key={`${photoIndex}-${order}`} className="relative overflow-hidden rounded-[6px] bg-[var(--surface)]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={previewPhotos[photoIndex]} alt={`${order + 1}번째 선택 사진`} className="aspect-[3/4] w-full object-cover" />
-                        <span className="absolute left-2 top-2 rounded-full bg-[var(--primary)] px-3 py-1 text-lg font-black text-[var(--primary-text)]">
-                          {order + 1}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <CompositingFramePreview photos={selectedFramePhotos} title="선택한 사진에 AI 배경을 입히는 중" compact />
                 )}
               </div>
               <div className="grid gap-5">
@@ -1650,19 +1710,25 @@ export function BoothApp() {
           )}
 
           {!error && step === "uploading" && (
-            <LoadingPanel
-              icon={<Wand2 className="h-16 w-16 animate-pulse" />}
-              title="사진을 정리하고 있습니다"
-              detail={uploadStatus || "선택한 사진을 보정하고 저장합니다"}
-            />
+            <div className="grid h-full grid-cols-[560px_1fr] items-center gap-12">
+              <CompositingFramePreview photos={selectedFramePhotos} title="크로마키 사진을 프레임에 올리는 중" />
+              <LoadingPanel
+                icon={<Wand2 className="h-16 w-16 animate-pulse" />}
+                title="사진을 정리하고 있습니다"
+                detail={uploadStatus || "선택한 사진을 보정하고 저장합니다"}
+              />
+            </div>
           )}
 
           {!error && step === "compose" && (
-            <LoadingPanel
-              icon={<Camera className="h-16 w-16 animate-pulse" />}
-              title="네컷 사진을 만들고 있습니다"
-              detail="선택한 4장과 배경을 최종 프레임에 맞춰 합성합니다"
-            />
+            <div className="grid h-full grid-cols-[560px_1fr] items-center gap-12">
+              <CompositingFramePreview photos={selectedFramePhotos} title="AI 배경과 네컷 프레임을 합성하는 중" />
+              <LoadingPanel
+                icon={<Camera className="h-16 w-16 animate-pulse" />}
+                title="네컷 사진을 만들고 있습니다"
+                detail="선택한 4장과 배경을 최종 프레임에 맞춰 합성합니다"
+              />
+            </div>
           )}
 
           {!error && step === "result" && finalUrl && (

@@ -312,6 +312,57 @@ input:focus-visible {
   z-index: 1;
 }
 
+.ai-composite-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #050505;
+  box-shadow:
+    0 0 0 1px rgba(244, 241, 232, 0.16),
+    0 0 60px rgba(94, 234, 212, 0.14);
+}
+
+.ai-composite-shell::before,
+.ai-composite-shell::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.ai-composite-shell::before {
+  inset: -45%;
+  z-index: -2;
+  background:
+    conic-gradient(
+      from 0deg,
+      #60a5fa,
+      #a78bfa,
+      #f472b6,
+      #fde047,
+      #34d399,
+      #22d3ee,
+      #60a5fa
+    );
+  animation: ai-border-rotate 2.7s linear infinite;
+  opacity: 0.95;
+}
+
+.ai-composite-shell::after {
+  inset: 5px;
+  z-index: -1;
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(96, 165, 250, 0.42), transparent 28%),
+    radial-gradient(circle at 88% 18%, rgba(244, 114, 182, 0.34), transparent 32%),
+    radial-gradient(circle at 54% 100%, rgba(52, 211, 153, 0.22), transparent 34%),
+    #050505;
+}
+
+.ai-composite-shell img {
+  position: relative;
+  z-index: 1;
+}
+
 .ai-progress-track {
   box-shadow:
     inset 0 0 0 1px rgba(244, 241, 232, 0.12),
