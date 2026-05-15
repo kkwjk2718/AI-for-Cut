@@ -34,6 +34,8 @@ const BANUBA_STAGE: Record<
 let runtimePromise: Promise<BanubaRuntime | null> | null = null;
 let banubaUnavailable = false;
 let processingQueue: Promise<unknown> = Promise.resolve();
+let lastInputDataUrl: string | null = null;
+let lastOutputDataUrl: string | null = null;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -222,6 +224,17 @@ export function applyBanubaBeautyFilter(dataUrl: string, strength: BeautyStrengt
         return null;
       }
       return withTimeout(runBanubaBeauty(dataUrl, strength), BANUBA_TOTAL_TIMEOUT_MS, "Banuba beauty timed out.");
+    })
+    .then((result) => {
+      if (result && lastOutputDataUrl === result && lastInputDataUrl !== dataUrl) {
+        banubaUnavailable = true;
+        return null;
+      }
+      if (result) {
+        lastInputDataUrl = dataUrl;
+        lastOutputDataUrl = result;
+      }
+      return result;
     })
     .catch(() => {
       banubaUnavailable = true;

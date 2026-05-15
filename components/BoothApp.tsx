@@ -184,6 +184,19 @@ function demoFinalDataUrl(): string {
   `);
 }
 
+function removeDuplicatedBeautyOutputs(originals: string[], processed: string[]): string[] {
+  const firstOriginalByProcessed = new Map<string, string>();
+  return processed.map((photo, index) => {
+    const original = originals[index];
+    const firstOriginal = firstOriginalByProcessed.get(photo);
+    if (firstOriginal && firstOriginal !== original) {
+      return original;
+    }
+    firstOriginalByProcessed.set(photo, original);
+    return photo;
+  });
+}
+
 const DEMO_ANALYSIS: PoseAnalysis = {
   people_count: 1,
   pose_summary: "정면을 바라보며 미래 연구소를 발견한 듯한 포즈",
@@ -1083,7 +1096,7 @@ export function BoothApp() {
         if (beautyRunRef.current !== runId) {
           return;
         }
-        setBeautifiedPhotos(processed);
+        setBeautifiedPhotos(removeDuplicatedBeautyOutputs(capturedPhotos, processed));
         setBeautyPreviewStatus("ready");
       })
       .catch(() => {
