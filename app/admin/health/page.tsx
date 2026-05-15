@@ -182,6 +182,55 @@ async function checkFaceMeshAssets(): Promise<HealthCheck> {
   };
 }
 
+async function checkBanubaAssets(): Promise<HealthCheck> {
+  const required = [
+    "BanubaSDK.data",
+    "BanubaSDK.wasm",
+    "BanubaSDK.simd.wasm",
+    "modules/background.zip",
+    "modules/eyes.zip",
+    "modules/face_tracker.zip",
+    "modules/hair.zip",
+    "modules/lips.zip",
+    "modules/skin.zip",
+    "effects/Makeup_new_morphs.zip",
+  ];
+  const root = path.join(process.cwd(), "public", "vendor", "banuba");
+  const missing: string[] = [];
+
+  await Promise.all(
+    required.map(async (fileName) => {
+      try {
+        await fs.access(path.join(root, fileName));
+      } catch {
+        missing.push(fileName);
+      }
+    }),
+  );
+
+  if (missing.length > 0) {
+    return {
+      label: "Banuba beauty SDK",
+      state: "fail",
+      detail: `Missing local asset: ${missing.join(", ")}`,
+    };
+  }
+
+  if (!process.env.NEXT_PUBLIC_BANUBA_CLIENT_TOKEN?.trim()) {
+    return {
+      label: "Banuba beauty SDK",
+      state: "warn",
+      detail: "Local assets are ready, but NEXT_PUBLIC_BANUBA_CLIENT_TOKEN is not set. Beauty will fall back to MediaPipe FaceMesh.",
+    };
+  }
+
+  return {
+    label: "Banuba beauty SDK",
+    state: "ok",
+    detail: "Local assets and client token are configured. The token value is not displayed.",
+  };
+}
+
 async function checkBrandAssets(): Promise<HealthCheck> {
   const required = ["school-mark.png", "keuni-deuri-hands.png"];
   const root = path.join(process.cwd(), "public", "brand");
@@ -265,6 +314,7 @@ export default async function AdminHealthPage() {
       checkDiskSpace(),
       checkMediaPipeAssets(),
       checkFaceMeshAssets(),
+      checkBanubaAssets(),
       checkBrandAssets(),
     ])),
     ...localConfigChecks(),

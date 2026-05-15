@@ -1,5 +1,7 @@
 "use client";
 
+import { applyBanubaBeautyFilter } from "@/lib/client-banuba-beauty";
+
 export type BeautyStrength = 0 | 1 | 2 | 3 | 4;
 
 export const BEAUTY_OPTIONS: Array<{
@@ -437,6 +439,11 @@ function hasFaceMask(mask: Uint8ClampedArray): boolean {
 export async function applyBeautyFilter(dataUrl: string, strength: BeautyStrength): Promise<string> {
   if (strength === 0) {
     return dataUrl;
+  }
+
+  const banubaResult = await applyBanubaBeautyFilter(dataUrl, strength);
+  if (banubaResult) {
+    return banubaResult;
   }
 
   try {

@@ -31,6 +31,7 @@ type Step =
   | "analysis_loading"
   | "tag_select"
   | "select_photos"
+  | "frame_select"
   | "uploading"
   | "compose"
   | "result"
@@ -79,6 +80,7 @@ const STEP_STAGE: Record<Step, number> = {
   tag_select: 1,
   background_loading: 3,
   select_photos: 3,
+  frame_select: 3,
   uploading: 3,
   compose: 4,
   result: 4,
@@ -454,6 +456,37 @@ function CompositingFramePreview({
   );
 }
 
+function ResultPhotoFrame({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+  }, [src]);
+
+  return (
+    <div className="relative aspect-[2/3] w-[600px] max-w-full overflow-hidden rounded-[6px] border-2 border-[var(--line-strong)] bg-[#050505] p-4">
+      {!loaded && (
+        <div className="absolute inset-4 grid place-items-center rounded-[4px] bg-[var(--surface)] text-center">
+          <div className="grid gap-3">
+            <Sparkles className="mx-auto h-12 w-12 animate-pulse text-[var(--primary)]" />
+            <p className="text-2xl font-black text-[var(--text-muted)]">완성본 불러오는 중</p>
+          </div>
+        </div>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="완성된 네컷"
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+        className={`absolute inset-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)] object-contain transition-opacity duration-300 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+      />
+    </div>
+  );
+}
+
 function FrameColorSelector({
   value,
   onChange,
@@ -726,8 +759,14 @@ export function BoothApp() {
     setSelectedPhotoIndices([0, 1, 2, 3]);
     setRequiredConsentAccepted(screenshotStep !== "consent");
     setArchiveImageConsent(false);
-    setBackgroundStatus(screenshotStep === "background_loading" || screenshotStep === "select_photos" ? "generating" : "ready");
-    setBackgroundProgress(screenshotStep === "background_loading" ? 72 : screenshotStep === "select_photos" ? 84 : 100);
+    setBackgroundStatus(
+      screenshotStep === "background_loading" || screenshotStep === "select_photos" || screenshotStep === "frame_select"
+        ? "generating"
+        : "ready",
+    );
+    setBackgroundProgress(
+      screenshotStep === "background_loading" ? 72 : screenshotStep === "select_photos" || screenshotStep === "frame_select" ? 84 : 100,
+    );
     setBackgroundError(null);
     setPendingUploadAfterBackground(screenshotStep === "background_loading");
     setUploadStatus("선택한 사진을 네컷 프레임에 맞추고 있습니다");
@@ -1144,6 +1183,21 @@ export function BoothApp() {
       }
       return [...current, index];
     });
+  }
+
+  function continueToFrameSelect() {
+    try {
+      if (!selectedReady) {
+        throw new Error("최종 사진 4장을 선택해 주세요.");
+      }
+      if (beautyPreviewProcessing) {
+        throw new Error("얼굴 보정 미리보기가 끝난 뒤 다시 눌러 주세요.");
+      }
+      setError(null);
+      setStep("frame_select");
+    } catch (selectionError) {
+      setError(selectionError instanceof Error ? selectionError.message : "사진 선택을 확인해 주세요.");
+    }
   }
 
   const composeResult = useCallback(async () => {
@@ -1739,7 +1793,6 @@ export function BoothApp() {
                     })}
                   </div>
                 </div>
-                <FrameColorSelector value={frameColorId} onChange={setFrameColorId} />
                 <BeautySelector value={beautyStrength} onChange={setBeautyStrength} />
                 {beautyPreviewStatus === "processing" && (
                   <p className="rounded-[4px] border-2 border-[#f4f1e8]/55 px-5 py-3 text-center text-2xl font-black text-[#f4f1e8]/72">
@@ -1762,16 +1815,54 @@ export function BoothApp() {
                   </div>
                 ) : (
                   <KioskButton
-                    onClick={() => void uploadSelectedPhotos()}
+                    onClick={continueToFrameSelect}
                     disabled={!selectedReady || beautyPreviewProcessing}
                     className="min-h-[108px] text-4xl"
                   >
-                    {beautyPreviewProcessing
-                      ? "보정 적용 중"
-                      : backgroundStatus === "ready"
-                        ? "선택한 4장으로 만들기"
-                        : "배경 준비되면 만들기"}
+                    {beautyPreviewProcessing ? "보정 적용 중" : "다음: 프레임 선택"}
                   </KioskButton>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!error && step === "frame_select" && (
+            <div className="grid min-h-0 grid-cols-[680px_1fr] items-center gap-10">
+              <div className="grid min-h-0 place-items-center">
+                <CompositingFramePreview
+                  photos={selectedFramePhotos}
+                  title="선택한 사진과 프레임 미리보기"
+                  frameColorId={frameColorId}
+                />
+              </div>
+
+              <div className="grid content-center gap-6">
+                <StepTitle
+                  eyebrow="04 프레임 선택"
+                  title="프레임 색을 골라 주세요"
+                  detail="선택한 4장을 실제 프레임에 먼저 맞춰 본 뒤, 다음 화면에서 AI 배경과 합성합니다."
+                  compact
+                />
+                <FrameColorSelector value={frameColorId} onChange={setFrameColorId} />
+                <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} compact />
+                {backgroundStatus === "error" ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <KioskButton onClick={retryBackgroundGeneration} className="text-3xl">
+                      배경 다시 생성
+                    </KioskButton>
+                    <KioskButton onClick={editTagsFromBackground} tone="secondary" className="text-3xl">
+                      배경 수정
+                    </KioskButton>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    <KioskButton onClick={() => void uploadSelectedPhotos()} className="min-h-[108px] text-4xl">
+                      이 프레임으로 AI 합성하기
+                    </KioskButton>
+                    <KioskButton onClick={() => setStep("select_photos")} tone="secondary" className="text-2xl">
+                      사진 다시 고르기
+                    </KioskButton>
+                  </div>
                 )}
               </div>
             </div>
@@ -1810,10 +1901,7 @@ export function BoothApp() {
           {!error && step === "result" && finalUrl && (
             <div className="grid min-h-0 grid-cols-[620px_1fr] gap-10">
               <div className="grid min-h-0 place-items-center">
-                <div className="h-full max-h-[900px] rounded-[6px] border-2 border-[var(--line-strong)] bg-[#050505] p-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={finalUrl} alt="완성된 네컷" className="h-full w-full object-contain" />
-                </div>
+                <ResultPhotoFrame src={finalUrl} />
               </div>
               <div className="grid content-center gap-8">
                 <StepTitle

@@ -46,6 +46,7 @@ npm run build
 - `ADMIN_ARCHIVE_TTL_HOURS`: 관리자 기록 보관 시간. 기본값은 `24`
 - `CRON_SECRET`: `POST /api/cleanup-expired` 호출 보호용 Bearer 토큰
 - `EVENT_LOG_DIR`: 개인정보를 제외한 운영 이벤트/에러 로그 디렉터리
+- `NEXT_PUBLIC_BANUBA_CLIENT_TOKEN`: Banuba Face AR SDK 클라이언트 토큰. 얼굴 보정 1~4단계에 사용하며 저장소에는 커밋하지 않습니다.
 - `TEMP_STORAGE_DIR`: 세션 임시 파일 디렉터리
 - `ADMIN_ARCHIVE_DIR`: 관리자 기록 및 선택 저장 이미지 디렉터리
 - `SESSION_TTL_MINUTES`: 실패 또는 미완료 세션 보관 시간
@@ -59,7 +60,7 @@ npm run build
 
 `http://localhost:3000/admin`에서 완성 시간, 선택 키워드, AI 비용, 메일 상태를 확인할 수 있습니다. 운영 환경에서는 `.env`에 `ADMIN_PIN`을 반드시 설정하세요. 개발 환경에서 `ADMIN_PIN`이 없으면 기본 PIN은 `0000`입니다.
 
-- `http://localhost:3000/admin/health`에서 OpenAI 연결, Brevo 연결, temp 저장소, 디스크 여유 공간, MediaPipe asset, 브랜드 asset, CRON_SECRET, 사진 아카이브 설정을 운영 전에 확인합니다.
+- `http://localhost:3000/admin/health`에서 OpenAI 연결, Brevo 연결, temp 저장소, 디스크 여유 공간, MediaPipe/Banuba asset, 브랜드 asset, CRON_SECRET, 사진 아카이브 설정을 운영 전에 확인합니다.
 - 기본 관리자 기록에는 얼굴 사진 원본, 완성 사진 이미지, 이메일 주소를 저장하지 않습니다.
 - 완성 사진 이미지는 `ADMIN_ARCHIVE_ENABLED=true`, `ADMIN_ARCHIVE_STORE_IMAGES=true`, 사용자의 선택 저장 동의가 모두 충족될 때만 저장합니다.
 - 관리자 기록에는 완성 시간, 선택 키워드, AI 사용량, 메일 전송 상태를 저장하고 `ADMIN_ARCHIVE_TTL_HOURS` 이후 정리합니다.
@@ -102,6 +103,7 @@ npm run cleanup-temp
 - 세션 상태 업데이트는 세션별 lock으로 순차 처리합니다.
 - 초록 크로마키 배경을 우선 제거하고, 크로마키가 충분히 감지되지 않을 때만 MediaPipe 인물 분리로 fallback합니다.
 - MediaPipe 런타임 파일은 `public/vendor/mediapipe/selfie_segmentation`에서 로컬로 제공합니다.
+- 얼굴 보정은 Banuba Face AR SDK asset을 `public/vendor/banuba`에서 로컬로 불러오며, 토큰이 없거나 로딩에 실패하면 기존 MediaPipe FaceMesh 기반 보정으로 fallback합니다.
 - 인물 분리에 실패하거나 alpha가 없는 사진 업로드가 들어오면 합성을 진행하지 않고 재촬영을 요구합니다.
 - 이메일 첨부는 `gshs-ai-4cut-hq.jpg` JPEG quality 97, 4:4:4 색상 샘플링으로 전송합니다.
 - 운영 이벤트와 에러는 `EVENT_LOG_DIR`에 JSONL로 남기며, 이메일과 원본 사진은 로그에 저장하지 않습니다.

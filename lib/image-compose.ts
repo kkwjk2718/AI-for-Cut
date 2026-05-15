@@ -15,6 +15,12 @@ const RIGHT_X = 622 * SCALE;
 const TOP_Y = 86 * SCALE;
 const BOTTOM_Y = 794 * SCALE;
 const FRAME_RADIUS = 4 * SCALE;
+const FOOTER_TOP = BOTTOM_Y + PANEL_HEIGHT;
+const FOOTER_CENTER_Y = Math.round((FOOTER_TOP + FINAL_HEIGHT) / 2);
+const FOOTER_TITLE_LINE_1_Y = FOOTER_CENTER_Y - 42;
+const FOOTER_TITLE_LINE_2_Y = FOOTER_CENTER_Y + 46;
+const SCHOOL_MARK_TOP = FOOTER_CENTER_Y - 148;
+const CHARACTER_MARK_TOP = FOOTER_CENTER_Y - 144;
 const EVENT_TITLE_LINE_1 = "2026. 진주시와 함께하는 경남과학고등학교";
 const EVENT_TITLE_LINE_2 = "수학, 과학, 정보 페스티벌";
 
@@ -112,8 +118,8 @@ async function frameDecoration(frameColorId: FrameColorId): Promise<Buffer> {
   const frameColor = getFrameColorOption(frameColorId);
   const baseSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${FINAL_WIDTH}" height="${FINAL_HEIGHT}">
     <rect width="${FINAL_WIDTH}" height="${FINAL_HEIGHT}" fill="${frameColor.value}"/>
-    <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 224}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="62" font-weight="900" fill="${frameColor.textColor}">${EVENT_TITLE_LINE_1}</text>
-    <text x="${FINAL_WIDTH / 2}" y="${FINAL_HEIGHT - 136}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="62" font-weight="900" fill="${frameColor.textColor}">${EVENT_TITLE_LINE_2}</text>
+    <text x="${FINAL_WIDTH / 2}" y="${FOOTER_TITLE_LINE_1_Y}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="62" font-weight="900" fill="${frameColor.textColor}">${EVENT_TITLE_LINE_1}</text>
+    <text x="${FINAL_WIDTH / 2}" y="${FOOTER_TITLE_LINE_2_Y}" text-anchor="middle" font-family="Malgun Gothic, Arial, sans-serif" font-size="62" font-weight="900" fill="${frameColor.textColor}">${EVENT_TITLE_LINE_2}</text>
   </svg>`;
 
   const schoolMark = await makeSchoolMark();
@@ -121,8 +127,8 @@ async function frameDecoration(frameColorId: FrameColorId): Promise<Buffer> {
 
   return sharp(Buffer.from(baseSvg))
     .composite([
-      { input: schoolMark, left: 72 * SCALE, top: FINAL_HEIGHT - 178 * SCALE },
-      { input: characters, left: FINAL_WIDTH - 292 * SCALE, top: FINAL_HEIGHT - 174 * SCALE },
+      { input: schoolMark, left: 72 * SCALE, top: SCHOOL_MARK_TOP },
+      { input: characters, left: FINAL_WIDTH - 292 * SCALE, top: CHARACTER_MARK_TOP },
     ])
     .png()
     .toBuffer();
