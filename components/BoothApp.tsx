@@ -1751,7 +1751,7 @@ export function BoothApp() {
                     const selected = selectedOrder !== -1;
                     return (
                       <button
-                        key={photo}
+                        key={`preview-photo-${index}`}
                         type="button"
                         onClick={() => togglePhoto(index)}
                         className={`relative overflow-hidden rounded-[6px] border-2 bg-[var(--surface)] active:translate-y-[2px] ${

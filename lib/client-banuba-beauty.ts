@@ -11,6 +11,9 @@ interface BanubaRuntime {
 const BANUBA_ROOT = "/vendor/banuba";
 const BANUBA_MODULES = ["background", "eyes", "face_tracker", "hair", "lips", "skin"] as const;
 const BANUBA_EFFECT = `${BANUBA_ROOT}/effects/Makeup_new_morphs.zip`;
+const BANUBA_TOTAL_TIMEOUT_MS = 6000;
+const BANUBA_RENDER_TIMEOUT_MS = 3500;
+const SUPPORTED_INPUT_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const BANUBA_STAGE: Record<
   BeautyStrength,
@@ -31,6 +34,22 @@ const BANUBA_STAGE: Record<
 let runtimePromise: Promise<BanubaRuntime | null> | null = null;
 let banubaUnavailable = false;
 let processingQueue: Promise<unknown> = Promise.resolve();
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 function getClientToken(): string | null {
   const token = process.env.NEXT_PUBLIC_BANUBA_CLIENT_TOKEN?.trim();
@@ -79,6 +98,15 @@ async function createRuntime(clientToken: string): Promise<BanubaRuntime> {
   await player.applyEffect(effect);
 
   return { player, effect };
+}
+
+function dataUrlMimeType(dataUrl: string): string | null {
+  return dataUrl.match(/^data:(.*?);base64,/)?.[1]?.toLowerCase() ?? null;
+}
+
+function isSupportedDataUrl(dataUrl: string): boolean {
+  const mime = dataUrlMimeType(dataUrl);
+  return Boolean(mime && SUPPORTED_INPUT_MIME_TYPES.has(mime));
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -167,7 +195,7 @@ async function runBanubaBeauty(dataUrl: string, strength: BeautyStrength): Promi
   const [{ width, height }, inputBlob] = await Promise.all([loadImageSize(dataUrl), Promise.resolve(dataUrlToBlob(dataUrl))]);
   await runtime.effect.evalJs(beautyScript(strength));
 
-  const renderWait = waitForRenderedFrame(runtime.player, 7000);
+  const renderWait = waitForRenderedFrame(runtime.player, BANUBA_RENDER_TIMEOUT_MS);
   runtime.player.use(new banuba.Image(inputBlob));
   runtime.player.play({ pauseOnEmpty: false });
   await renderWait;
@@ -183,10 +211,22 @@ export function applyBanubaBeautyFilter(dataUrl: string, strength: BeautyStrengt
     return Promise.resolve(dataUrl);
   }
 
+  if (banubaUnavailable || !isSupportedDataUrl(dataUrl)) {
+    return Promise.resolve(null);
+  }
+
   const task = processingQueue
     .catch(() => undefined)
-    .then(() => runBanubaBeauty(dataUrl, strength))
-    .catch(() => null);
+    .then(() => {
+      if (banubaUnavailable) {
+        return null;
+      }
+      return withTimeout(runBanubaBeauty(dataUrl, strength), BANUBA_TOTAL_TIMEOUT_MS, "Banuba beauty timed out.");
+    })
+    .catch(() => {
+      banubaUnavailable = true;
+      return null;
+    });
 
   processingQueue = task.catch(() => null);
   return task;
