@@ -13,12 +13,12 @@ export function Countdown({ value, label, variant = "prep" }: CountdownProps) {
 
   if (variant === "shutter") {
     return (
-      <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center bg-black/38 backdrop-blur-[1px]">
-        <div className="grid place-items-center gap-3 text-center" aria-live="assertive">
-          <div className="rounded-[4px] border-[3px] border-[#f04438] bg-[#f04438] px-7 py-2 text-3xl font-black text-[#f4f1e8]">
+      <div className="pointer-events-none absolute inset-0 z-30">
+        <div className="absolute right-4 top-4 grid place-items-center gap-1.5 text-center" aria-live="assertive">
+          <div className="rounded-[4px] bg-[#f04438] px-4 py-1.5 text-xl font-black text-[#f4f1e8] shadow-[0_8px_28px_rgba(0,0,0,0.42)]">
             {label ?? "촬영"}
           </div>
-          <div className="text-[180px] font-black leading-none text-[#f4f1e8] drop-shadow-[0_8px_28px_rgba(0,0,0,0.72)]">
+          <div className="grid h-24 w-24 place-items-center rounded-full border-[5px] border-[#f04438] bg-[#050505]/58 text-[62px] font-black leading-none text-[#f4f1e8] shadow-[0_10px_34px_rgba(0,0,0,0.48)]">
             {value}
           </div>
         </div>
@@ -27,19 +27,21 @@ export function Countdown({ value, label, variant = "prep" }: CountdownProps) {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-[#050505]/92 backdrop-blur-sm">
+    <div className="pointer-events-none w-full">
       <div
-        className="grid min-w-[560px] place-items-center gap-6 rounded-[4px] border-[4px] border-[#f4f1e8] bg-[#0b0b0b] px-12 py-10 text-center shadow-[0_0_80px_rgba(244,241,232,0.12)]"
+        className="grid grid-cols-[1fr_108px] items-center gap-5 rounded-[8px] border border-[#5eead4]/44 bg-[#151515] px-5 py-4 text-left shadow-[0_18px_48px_rgba(0,0,0,0.34)]"
         aria-live="assertive"
       >
-        <div className="rounded-[4px] border-[3px] border-[#f4f1e8]/70 px-6 py-2 text-2xl font-black tracking-[0.22em] text-[#f4f1e8]/72">
-          POSE READY
+        <div className="min-w-0">
+          <div className="text-base font-black tracking-[0.18em] text-[#5eead4]">READY</div>
+          {label && <div className="mt-1 text-3xl font-black text-[#f4f1e8]">{label}</div>}
+          <p className="mt-2 safe-text text-lg font-black leading-snug text-[#f4f1e8]/62">
+            화면을 보면서 자세를 맞춰 주세요.
+          </p>
         </div>
-        {label && <div className="text-5xl font-black text-[#f4f1e8]">{label}</div>}
-        <div className="flex h-56 w-56 items-center justify-center rounded-full border-[8px] border-[#f4f1e8] bg-transparent text-[138px] font-black leading-none text-[#f4f1e8]">
+        <div className="grid h-[108px] w-[108px] place-items-center rounded-full border-[5px] border-[#5eead4] bg-[#050505] text-[64px] font-black leading-none text-[#f4f1e8]">
           {value}
         </div>
-        <p className="text-3xl font-black text-[#f4f1e8]/62">자세를 바꾸고 화면을 바라봐 주세요</p>
       </div>
     </div>
   );

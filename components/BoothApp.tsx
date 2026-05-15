@@ -578,6 +578,7 @@ export function BoothApp() {
 
     const params = new URLSearchParams(window.location.search);
     const screenshotStep = params.get("screenshotStep") as Step | null;
+    const screenshotCountdown = params.get("screenshotCountdown");
     if (!screenshotStep || !(screenshotStep in STEP_STAGE)) {
       return;
     }
@@ -607,6 +608,17 @@ export function BoothApp() {
     setShotStatus(screenshotStep === "capture" ? SHOT_MISSIONS[1] : "화면을 보고 원하는 테마를 몸짓으로 표현해 주세요");
     setFinalUrl(demoFinalDataUrl());
     setCompleteTitle("완료");
+    if (screenshotCountdown === "prep") {
+      setCountdownMode("prep");
+      setCountdownLabel(screenshotStep === "capture" ? "포즈 변경" : "포즈 준비");
+      setCountdown(4);
+    } else if (screenshotCountdown === "shutter") {
+      setCountdownMode("shutter");
+      setCountdownLabel("촬영");
+      setCountdown(3);
+    } else {
+      clearCountdown();
+    }
     setStep(screenshotStep);
   }, []);
 
@@ -1088,7 +1100,6 @@ export function BoothApp() {
 
   return (
     <main className="kiosk-root">
-      <Countdown value={countdownMode === "prep" ? countdown : null} label={countdownLabel} variant="prep" />
       <div className="photoism-theme kiosk-screen bg-[#050505] text-[#f4f1e8]">
         <KioskHeader step={step} onRestart={() => void restart()} />
 
@@ -1286,6 +1297,7 @@ export function BoothApp() {
                         className="h-full w-full rounded-[4px] object-cover"
                       />
                       <CameraGuideOverlay />
+                      <Countdown value={countdownMode === "shutter" ? countdown : null} label={countdownLabel} variant="shutter" />
                     </div>
                   ) : (
                     <CameraPreview
@@ -1310,6 +1322,7 @@ export function BoothApp() {
                   compact
                   right={<div className="rounded-[6px] bg-[var(--primary)] px-6 py-4 text-2xl font-black text-[var(--primary-text)]">AUTO</div>}
                 />
+                <Countdown value={countdownMode === "prep" ? countdown : null} label={countdownLabel} variant="prep" />
                 {step === "capture" && <CaptureRail captured={capturedPhotos} activeIndex={shotIndex} count={FINAL_CAPTURE_COUNT} />}
                 {step === "capture" && backgroundStatus !== "idle" && (
                   <BackgroundProgress status={backgroundStatus} progress={backgroundProgress} error={backgroundError} compact />
