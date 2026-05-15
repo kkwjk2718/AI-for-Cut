@@ -159,7 +159,7 @@ export async function sendPhotoEmail({
         name: senderName,
       },
       to: [{ email: to }],
-      subject: `[${BOOTH_NAME}] 완성 사진을 보내드립니다`,
+      subject: `[${BOOTH_NAME}] - 결과 사진`,
       textContent: emailTextContent,
       htmlContent: buildEmailHtmlContent(inlinePreviewDataUri),
       attachment: [
