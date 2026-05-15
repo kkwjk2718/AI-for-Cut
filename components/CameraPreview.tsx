@@ -129,7 +129,7 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
       >
         <video
           ref={videoRef}
-          className="h-full w-full object-cover"
+          className="h-full w-full -scale-x-100 object-cover"
           playsInline
           muted={muted}
           aria-label="카메라 미리보기"
